@@ -1,0 +1,3 @@
+@< path("ElasticConstantsFirstStrainGradientCubic") >@
+@< MODELNAME >@
+Ar
