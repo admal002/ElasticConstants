@@ -57,7 +57,7 @@ OUTPUTINFLAG = $(shell $(KIM_CONFIG_HELPER) --outputinflag)
 
 .PHONY: all clean
 
-TEST_NAME := test_elastic_constants
+TEST_NAME := runner
 
 all: $(TEST_NAME)
 
