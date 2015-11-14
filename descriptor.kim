@@ -50,10 +50,10 @@ Unit_time        := ps
 PARTICLE_SPECIES:
 # Symbol/name               Type                    code
 
-#Si                          spec                    13
 #Al                          spec                    13
-Cu                          spec                    13
-#Ar                          spec                    1
+#Si                          spec                    13
+#Cu                          spec                    13
+Ar                          spec                    1
 
 
 #######################################################################################################
@@ -64,21 +64,19 @@ OneBasedLists               flag
 
 Neigh_BothAccess            flag
 
-CLUSTER                     flag
-
-NEIGH_RVEC_H                flag
-
 NEIGH_PURE_H                flag
+
+NEIGH_PURE_F                flag
 
 NEIGH_RVEC_F                flag
 
-NEIGH_PURE_F                flag
+NEIGH_RVEC_H                flag
+
+CLUSTER                     flag
 
 MI_OPBC_H                   flag
 
 MI_OPBC_F                   flag
-
-
 
 #######################################################################################################
 MODEL_INPUT:
@@ -115,7 +113,7 @@ compute                     method       none                []
 
 cutoff                      double       length              []
 
-#energy                      double       energy              []
+energy                      double       energy              []
 
 #forces                      double       force               [numberOfParticles,3]
 
