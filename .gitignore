@@ -1,0 +1,6 @@
+/*.mod
+/*.o
+/*.bck
+/*.numerical
+/test_elastic_constants.F03
+/old/
