@@ -33,10 +33,7 @@
 #
 
 
-This directory (ex_test_Al_free_cluster) contains a test that computes the energy
-of and forces on the particles of an isolated (free) cubic FCC cluster of
-Al particles.
-
+This directory (ElasticConstantsFirstStrainGradientCubic) contains a test that computes the first strain gradient elastic constants of bulk FCC lattice of copper particles.`
 
 The following files are in the directory (before any compilation is performed):
 
@@ -49,10 +46,10 @@ Makefile
 README
      This file.
 
-ex_test_Al_free_cluster.F03
-     F03 program that implements the test.
+runner
+     A python script that implements the test.
 
-descriptor.kim
-     KIM descriptor file, contains all variables and methods that are exposed
-     through the KIM API interface.
+pipeline.stdin.tpl
+
+kimspec.end
 
