@@ -55,7 +55,7 @@ module mod_global
 end module mod_global
 
 !-------------------------------------------------------------------------------
-! module mod coordinates:
+! module coordinates:
 !     Contains coordinates and the middle particle ID of the sysetem
 !
 module coordinates
@@ -77,7 +77,7 @@ module mod_neighborlist
     use KIM_API_F03
     use mod_global
 
-    public setup_neighborlist_KIM_access, get_neigh
+    public  get_neigh
 
     type neighObject_type
     integer(c_int), pointer :: neighborList(:,:)
@@ -85,44 +85,6 @@ module mod_neighborlist
     end type neighObject_type
 
 contains
-
-!-------------------------------------------------------------------------------
-!
-! setup_neighborlist_KIM_access :
-!
-!    Store necessary pointers in KIM API object to access the neighbor list
-!    data and methods.
-!
-!-------------------------------------------------------------------------------
-subroutine setup_neighborlist_KIM_access(pkim, neighObject)
-  implicit none
-
-  !-- Transferred variables
-  type(c_ptr),                    intent(in) :: pkim
-  type(neighObject_type), target, intent(in) :: neighObject
-
-  !-- Local variables
-  integer(c_int), parameter :: SizeOne = 1
-  integer(c_int)            :: ier, idum
-
-  ! store location of neighObject variable
-  !
-  ier = kim_api_set_data(pkim, "neighObject", SizeOne, c_loc(neighObject))
-  if (ier.lt.KIM_STATUS_OK) then
-     idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                 "kim_api_set_data", ier)
-     stop
-  endif
-  ier = kim_api_set_method(pkim, "get_neigh", SizeOne, c_funloc(get_neigh))
-  if (ier.lt.KIM_STATUS_OK) then
-     idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                 "kim_api_set_method", ier)
-     stop
-  endif
-
-  return
-
-end subroutine setup_neighborlist_KIM_access
 
 !-------------------------------------------------------------------------------
 !
@@ -239,6 +201,8 @@ use mod_global
 implicit none
 
 real(c_double) :: Cijkl(DIM,DIM,DIM,DIM),Dijmkln(DIM,DIM,DIM,DIM,DIM,DIM)
+real(c_double) :: Cijkl_numerical(DIM,DIM,DIM,DIM),Dijmkln_numerical(DIM,DIM,DIM,DIM,DIM,DIM)
+
 contains
     subroutine setup_process_KIM_access(pkim)
     use KIM_API_F03
@@ -460,6 +424,120 @@ contains
     return
     end function tensor_prod_6
 
+subroutine write_results
+    implicit none
+
+    ! Local variables
+    integer(c_int)             :: cunit,dunit,runit
+    integer,external           :: GetFreeUnit
+    character(len=1)           :: cr
+
+    cr = char(10)
+
+    cunit = GetFreeUnit()
+    open(unit=cunit,file='output/Cijkl.out',status='replace')
+    dunit = GetFreeUnit()
+    open(unit=dunit,file='output/Dijmkln.out',status='replace')
+    
+    write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
+    write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
+    write(cunit, *) "c44 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
+
+    write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1)
+    write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2),Dijmkln_numerical(1,1,1,1,2,2)
+    write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1),Dijmkln_numerical(1,1,1,2,2,1)
+    write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2),Dijmkln_numerical(1,1,2,1,1,2)
+    write(dunit,*) "D112121 = ",Dijmkln(1,1,2,1,2,1),Dijmkln_numerical(1,1,2,1,2,1)
+    write(dunit,*) "D112233 = ",Dijmkln(1,1,2,2,3,3),Dijmkln_numerical(1,1,2,2,3,3)
+    write(dunit,*) "D112332 = ",Dijmkln(1,1,2,3,3,2),Dijmkln_numerical(1,1,2,3,3,2)
+    write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1),Dijmkln_numerical(1,2,1,1,2,1)
+    write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
+    write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
+
+    close(cunit)
+    close(dunit)
+
+    ! Now write the results.edn file
+    runit = GetFreeUnit()
+    open(unit=runit,file='output/results.edn',status='replace')
+    write(runit,*) &
+    '{'                               // cr //  &
+    '   "short-name" {'               // cr //  &
+    '       "source-value" ['         // cr //  &
+    '           "fcc"'                // cr //  &
+    '       ]'                        // cr //  &
+    '   }'                            // cr //  &
+    '    "a" {'                                    // cr //  &
+    '        "si-unit" "m"'                        // cr //  &
+    '        "source-unit" "angstrom"'             // cr //  &
+    '        "si-value" 5.24859e-10'               // cr //  &
+    '        "source-value" 5.23232'               // cr //  &
+    '    }'                                        // cr //  &
+    '    "wyckoff-species" {'                      // cr //  &
+    '        "source-value" ['                     // cr //  &
+    '            "Ar" '                            // cr //  &
+    '        ]'                                    // cr //  &
+    '    }'                                        // cr //  &
+    '    "wyckoff-multiplicity-and-letter" {'      // cr //  &
+    '        "source-value" ['                     // cr //  &
+    '            "4a"'                             // cr //  &
+    '        ]'                                    // cr //  &
+    '    }'                                        // cr //  &
+    '    "property-id" "tag:staff@noreply.openkim.org,2014-04-15:property/cohesive-potential-energy-cubic-crystal"'    // cr //  &
+    '    "space-group" {'                          // cr //  &
+    '        "source-value" "Fm-3m"'               // cr //  &
+    '    }'                                        // cr //  &
+    '    "cohesive-potential-energy" {'            // cr //  &
+    '        "si-unit" "kg m^2 / s^2"'             // cr //  &
+    '        "source-unit" "eV"'                   // cr //  &
+    '        "si-value" 1.3859709e-20'             // cr //  &
+    '        "source-value" 0.0865055077405508'    // cr //  &
+    '    }'                                        // cr //  &
+    '    "basis-atom-coordinates" {'               // cr //  &
+    '        "source-value" ['                     // cr //  &
+    '            ['                                // cr //  &
+    '                0'                            // cr //  &
+    '                0'                            // cr //  &
+    '                0'                            // cr //  &
+    '            ]'                                // cr //  &
+    '            ['                                // cr //  &
+    '                0'                            // cr //  &
+    '                0.5'                          // cr //  &
+    '                0.5'                          // cr //  &
+    '            ]'                                // cr //  & 
+    '            ['                                // cr //  &
+    '                0.5 '                         // cr //  &
+    '                0 '                           // cr //  &
+    '                0.5'                          // cr //  &
+    '            ]'                                // cr //  &
+    '            ['                                // cr //  &
+    '                0.5'                          // cr //  &
+    '                0.5'                          // cr //  &
+    '                0'                            // cr //  &
+    '            ]'                                // cr //  &
+    '        ]'                                    // cr //  &
+    '    }'                                        // cr //  &
+    '    "wyckoff-coordinates" {'                  // cr //  &
+    '        "source-value" ['                     // cr //  &
+    '            ['                                // cr //  &
+    '                0'                            // cr //  &
+    '                0'                            // cr //  &
+    '                0'                            // cr //  &
+    '            ]'                                // cr //  &
+    '        ]'                                    // cr //  &
+    '    }'                                        // cr //  &
+    '    "species" {'                              // cr //  &
+    '        "source-value" ['                     // cr //  &
+    '            "Ar"'                             // cr //  &
+    '            "Ar"'                             // cr //  &
+    '            "Ar"'                             // cr //  &
+    '            "Ar"'                             // cr //  &
+    '        ]'                                    // cr //  &
+    '    }'                                        // cr //  &
+    '    "instance-id" 1'                          // cr //  &
+'}'
+end subroutine write_results
+
 end module mod_process
 
 !*******************************************************************************
@@ -476,7 +554,6 @@ end module mod_process
 !**        NEIGH_PURE_F
 !**        MI_OPBC_H
 !**        MI_OPBC_F
-!**        CLUSTER
 !**
 !*******************************************************************************
 
@@ -490,7 +567,10 @@ program runner
     use KIM_API_F03
     use coordinates
     use mod_neighborlist
-    use mod_process, only : Cijkl,Dijmkln,setup_process_KIM_access
+    use mod_process, only : Cijkl,Cijkl_numerical,      &
+                            Dijmkln,Dijmkln_numerical,  &
+                            write_results,              &
+                            setup_process_KIM_access
     implicit none
 
     integer(c_int), parameter :: nCellsPerSide  = 8
@@ -530,7 +610,7 @@ program runner
     real(c_double), pointer :: energy;              type(c_ptr) :: penergy
     real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
 
-    Cijkl = 0._cd
+    Cijkl   = 0._cd
     Dijmkln = 0._cd
 
     ! Get KIM Model name to use
@@ -722,11 +802,6 @@ program runner
     print '("Queried Lattice constant : ",F20.15)', LatticeSpacing
     print '("Using NBC                : ",A)', trim(NBC_Method)
 
-    Cijkl = Cijkl/AtomVol
-    Dijmkln = Dijmkln/AtomVol
-
-    call write_results(Cijkl,Dijmkln)
-
     !-------------------------------------------------------------------------------
     ! Numerical checks
     !
@@ -734,12 +809,24 @@ program runner
     ! Switch off process_dedr and process_d2edr2
     call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_FALSE,ier)
     call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_FALSE,ier)
+    if (ier.lt.KIM_STATUS_OK) then
+        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                 "kim_api_set_compute", ier)
+        stop
+    endif
 
     ! Perform the following non-uniform deformation which corresponts to zero strain
     ! and infinitesimal first strain gradient
 
-    call nonuniform_deformation(pkim,Dijmkln,LatticeSpacing)
-    call numerical_check(pkim,LatticeSpacing)
+    call numerical_check_Dijmkln(pkim,nbc)
+    call numerical_check_Cijkl(pkim,nbc)
+
+    Cijkl             = Cijkl/AtomVol
+    Dijmkln           = Dijmkln/AtomVol
+    Cijkl_numerical   = Cijkl_numerical/AtomVol
+    Dijmkln_numerical = Dijmkln_numerical/AtomVol
+
+    call write_results
 
     ! Don't forget to free and/or deallocate
     deallocate(neighObject%neighborList)
@@ -1172,37 +1259,35 @@ subroutine create_BCC_configuration(LatticeSpacing, nCellsPerSide, periodic, &
 
 end subroutine create_BCC_configuration
 
-subroutine numerical_check(pkim,FCCSpacing)
+subroutine numerical_check_Cijkl(pkim,nbc)
     use mod_global
     use coordinates
+    use mod_process, only : Cijkl_numerical
+    use mod_neighborlist, only : neighObject_type
     use KIM_API_F03
     implicit none
     ! Passed variables
     type(c_ptr),   intent(in) :: pkim
-    real(c_double)            :: FCCSpacing
+    integer(c_int),intent(in) :: nbc
 
     ! Local variables
     real(c_double), allocatable :: coords_old(:,:) 
-    real(c_double)              :: energy0,energy_plus,energy_neg, &
-                                   eps,gradU(DIM,DIM),                 &
-                                   Cijkl_numerical(DIM,DIM,DIM,DIM)
+    real(c_double)              :: energy_plus,energy_neg, &
+                                   eps,gradU(DIM,DIM)
     integer(c_int) :: partIndex,xc,yc,p,q,r,s,t,u,ier,idum
-    integer(c_int)                         :: cunit
-    integer,external           :: GetFreeUnit
 
-    integer(c_int), pointer :: N;       type(c_ptr) :: pnParts
-    real(c_double), pointer :: cutoff;  type(c_ptr) :: pcutoff
-    real(c_double), pointer :: energy;  type(c_ptr) :: penergy
-
-    cunit = GetFreeUnit()
-    open(unit=cunit,file='output/Cijkl_numerical.out',status='replace')
+    integer(c_int), pointer :: N;             type(c_ptr) :: pnParts
+    real(c_double), pointer :: energy;        type(c_ptr) :: penergy
+    real(c_double), pointer :: cutoff;        type(c_ptr) :: pcutoff
+    type(neighObject_type), pointer :: neighObject;   type(c_ptr) :: pneighObject
 
     ! Unpack data from KIM object
     !
     call kim_api_getm_data(pkim, ier, &
-       "numberOfParticles",           pnParts,          1,              &
-       "cutoff",                      pcutoff,          1,              &
-       "energy",                      penergy,          1)
+       "numberOfParticles",     pnParts,          1,              &
+       "neighObject",           pneighObject,     1,              &
+       "cutoff",                pcutoff,          1,              &
+       "energy",                penergy,          1)
 
     if (ier.lt.KIM_STATUS_OK) then
         idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
@@ -1211,42 +1296,96 @@ subroutine numerical_check(pkim,FCCSpacing)
     endif
 
     call c_f_pointer(pnParts, N)
-    call c_f_pointer(pcutoff, cutoff)
     call c_f_pointer(penergy, energy)
+    call c_f_pointer(pcutoff, cutoff)
+    call c_f_pointer(pneighObject, neighObject)
 
     allocate(coords_old(DIM,N))
-
-    ier = kim_api_model_compute(pkim)
-    if (ier.lt.KIM_STATUS_OK) then
-       idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                   "kim_api_model_compute", ier)
-       stop
-    endif
-
-    energy0 = energy
 
     ! Initialize
     coords_old      = coords
     eps             = 1.e-4
     Cijkl_numerical = 0._cd
 
-    do u=1,2
-        if (u .eq. 1) then
-            p=1
-            q=1
-        else
-            p=1
-            q=2
-        endif
+    do u=1,3
+        energy_plus = 0._cd
+        energy_neg  = 0._cd
+        coords = coords_old
 
-        do t=1,2
+        select case(u)
+        case(1)
+            p=1; q=1; r=1; s=1
+        case(2)
+            p=1; q=2; r=1; s=2
+        case(3)
+            p=1; q=1; r=2; s=2
+        end select
+
+        do t=1,4
             coords = coords_old
             gradU  = 0._cd
-            if (t .eq. 1) then
-                gradU(p,q) = eps
-            else
-                gradU(p,q) = -eps
-            endif
+            select case(t)
+            case(1)
+                if (p .eq. q) then
+                    gradU(p,q) = eps
+                else
+                    gradU(p,q) = eps/2._cd
+                    gradU(q,p) = eps/2._cd
+                endif
+                if (r .eq. s) then
+                    gradU(r,s) = eps
+                else
+                    gradU(r,s) = eps/2._cd
+                    gradU(s,r) = eps/2._cd
+                endif
+            case(2)
+                if (p .eq. q) then
+                    gradU(p,q) = eps
+                else
+                    gradU(p,q) = eps/2._cd
+                    gradU(q,p) = eps/2._cd
+                endif
+                if (r .eq. s) then
+                    gradU(r,s) = -eps
+                else
+                    gradU(r,s) = -eps/2._cd
+                    gradU(s,r) = -eps/2._cd
+                endif
+                if (p .eq. r .and. q .eq. s) then
+                    gradU(p,q) = 0._cd
+                    gradU(q,p) = 0._cd
+                endif
+            case(3)
+                if (p .eq. q) then
+                    gradU(p,q) = -eps
+                else
+                    gradU(p,q) = -eps/2._cd
+                    gradU(q,p) = -eps/2._Cd
+                endif
+                if (r .eq. s) then
+                    gradU(r,s) = eps
+                else
+                    gradU(r,s) = eps/2._cd
+                    gradU(s,r) = eps/2._cd
+                endif
+                if (p .eq. r .and. q .eq. s) then 
+                    gradU(p,q) = 0._cd
+                    gradU(q,p) = 0._cd
+                endif
+            case(4)
+                if (p .eq. q) then
+                    gradU(p,q) = -eps
+                else
+                    gradU(p,q) = -eps/2._cd
+                    gradU(q,p) = -eps/2._cd
+                endif
+                if (r .eq. s) then
+                    gradU(r,s) = -eps
+                else
+                    gradU(r,s) = -eps/2._cd
+                    gradU(s,r) = -eps/2._cd
+                endif
+            endselect
 
             ! Deform
             do partIndex = 1,N
@@ -1256,6 +1395,229 @@ subroutine numerical_check(pkim,FCCSpacing)
                     enddo
                 enddo
             enddo
+
+            if (nbc.eq.0) then
+                call NEIGH_RVEC_neighborlist(.true., N, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            elseif (nbc.eq.2) then
+                call NEIGH_RVEC_neighborlist(.false., N, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            endif
+            
+            ! Now compute energy
+            ier = kim_api_model_compute(pkim)
+            if (ier.lt.KIM_STATUS_OK) then
+               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                           "kim_api_model_compute", ier)
+               stop
+            endif
+
+            if (t .eq. 1 .or. t .eq. 4) then
+                energy_plus = energy_plus + energy
+            elseif (t .eq. 2 .or. t .eq. 3) then
+                energy_neg = energy_neg + energy
+            endif
+        enddo
+
+
+        if ( p .eq. r .and. q .eq. s) then
+            Cijkl_numerical(p,q,r,s) = (energy_plus - energy_neg)/(eps**2)
+        else
+            Cijkl_numerical(p,q,r,s) = (energy_plus - energy_neg)/(4._cd * eps**2)
+        endif
+    enddo
+
+coords = coords_old
+deallocate(coords_old)
+
+end subroutine numerical_check_Cijkl
+
+subroutine numerical_check_Dijmkln(pkim,nbc)
+    use mod_global
+    use KIM_API_F03
+    use coordinates
+    use mod_neighborlist, only : neighObject_type
+    use mod_process, only : Dijmkln_numerical
+    implicit none
+    
+    ! Passed variables
+    type(c_ptr),   intent(in)  :: pkim
+    integer(c_int),intent(in) :: nbc
+
+    ! Local variables
+    real(c_double), allocatable            :: coords_old(:,:)
+    integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,ier,idum
+    real(c_double)                         :: energy_plus,energy_neg,eps
+    real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
+
+    integer(c_int), pointer :: nParts;       type(c_ptr) :: pnParts
+    real(c_double), pointer :: energy;  type(c_ptr) :: penergy
+    real(c_double), pointer :: cutoff;        type(c_ptr) :: pcutoff
+    type(neighObject_type), pointer :: neighObject;   type(c_ptr) :: pneighObject
+
+
+    ! Unpack data from KIM object
+    !
+    call kim_api_getm_data(pkim, ier, &
+       "numberOfParticles",     pnParts,          1,   &
+       "neighObject",           pneighObject,     1,   &
+       "cutoff",                pcutoff,          1,   &
+       "energy",                penergy,          1)
+
+    if (ier.lt.KIM_STATUS_OK) then
+        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                     "kim_api_getm_data", ier)
+        stop
+    endif
+
+    call c_f_pointer(pnParts, nParts)
+    call c_f_pointer(penergy, energy)
+    call c_f_pointer(pcutoff, cutoff)
+    call c_f_pointer(pneighObject, neighObject)
+
+
+    allocate(coords_old(DIM,nParts))
+    coords_old      = coords
+    eps             = 1.e-3
+    Dijmkln_numerical = 0._cd
+
+    do p=2,nParts
+        coords_old(:,p) = coords_old(:,p) - coords_old(:,1)
+    enddo
+    coords_old(:,MiddlePartId) = 0._cd
+
+
+    do q=1,11
+        energy_plus = 0._cd
+        energy_neg  = 0._cd
+
+        select case(q)
+        case(1)
+            i = 1; j = 1; m = 1
+            k = 1; l = 1; n = 1
+        case(2)
+            i = 1; j = 1; m = 1
+            k = 1; l = 2; n = 2
+        case(3)
+            i = 1; j = 1; m = 1
+            k = 2; l = 2; n = 1
+        case(4)
+            i = 1; j = 1; m = 2
+            k = 1; l = 1; n = 2
+        case(5)
+            i = 1; j = 1; m = 2
+            k = 1; l = 2; n = 1
+        case(6)
+            i = 1; j = 1; m = 2
+            k = 2; l = 3; n = 3
+        case(7)
+            i = 1; j = 1; m = 2
+            k = 3; l = 3; n = 2
+        case(8)
+            i = 1; j = 2; m = 1
+            k = 1; l = 2; n = 1
+        case(9)
+            i = 1; j = 2; m = 1
+            k = 2; l = 3; n = 3
+        case(10)
+            i = 1; j = 2; m = 3
+            k = 1; l = 2; n = 3
+        case(11)
+            i = 1; j = 2; m = 3
+            k = 1; l = 3; n = 2
+        end select
+
+        do p=1,4
+            coords = coords_old
+            Eijk = 0._cd
+            Cijk = 0._cd
+
+            select case(p)
+                case(1)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = eps
+                    else
+                        Eijk(i,j,m) = eps/2._cd
+                        Eijk(j,i,m) = eps/2._cd
+                    endif
+                    if (k .eq. l) then
+                        Eijk(k,l,n) = eps
+                    else
+                        Eijk(k,l,n) = eps/2._cd
+                        Eijk(l,k,n) = eps/2._cd
+                    endif
+                case(2)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = eps
+                    else
+                        Eijk(i,j,m) = eps/2._cd
+                        Eijk(j,i,m) = eps/2._cd
+                    endif
+                    if (k .eq. l) then
+                        Eijk(k,l,n) = -eps
+                    else
+                        Eijk(k,l,n) = -eps/2._cd
+                        Eijk(l,k,n) = -eps/2._cd
+                    endif
+                    if ( i .eq. k .and. j .eq. l .and. m .eq. n) then
+                        Eijk(i,j,m) = 0._cd
+                        Eijk(j,i,m) = 0._cd
+                    endif
+                case(3)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = -eps
+                    else
+                        Eijk(i,j,m) = -eps/2._cd
+                        Eijk(j,i,m) = -eps/2._cd
+                    endif
+                    if (k .eq. l) then
+                        Eijk(k,l,n) = eps
+                    else
+                        Eijk(k,l,n) = eps/2._cd
+                        Eijk(l,k,n) = eps/2._cd
+                    endif
+                    if ( i .eq. k .and. j .eq. l .and. m .eq. n) then
+                        Eijk(i,j,m) = 0._cd
+                        Eijk(j,i,m) = 0._cd
+                    endif
+                case(4)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = -eps
+                    else
+                        Eijk(i,j,m) = -eps/2._cd
+                        Eijk(j,i,m) = -eps/2._cd
+                    endif
+                    if (k .eq. l) then
+                        Eijk(k,l,n) = -eps
+                    else
+                        Eijk(k,l,n) = -eps/2._cd
+                        Eijk(l,k,n) = -eps/2._cd
+                    endif
+            end select
+
+            call Calculate_Cijk(Eijk,Cijk)
+        
+            do r=1,nParts
+                do s=1,3
+                   coords(s,r)         = coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_old(1,r) * coords_old(1,r) +   &
+                                                       0.5d0*Cijk(s,1,2) * coords_old(1,r) * coords_old(2,r) +   &
+                                                       0.5d0*Cijk(s,1,3) * coords_old(1,r) * coords_old(3,r) +   &
+                                                       0.5d0*Cijk(s,2,1) * coords_old(2,r) * coords_old(1,r) +   &
+                                                       0.5d0*Cijk(s,2,2) * coords_old(2,r) * coords_old(2,r) +   &
+                                                       0.5d0*Cijk(s,2,3) * coords_old(2,r) * coords_old(3,r) +   &
+                                                       0.5d0*Cijk(s,3,1) * coords_old(3,r) * coords_old(1,r) +   &
+                                                       0.5d0*Cijk(s,3,2) * coords_old(3,r) * coords_old(2,r) +   &
+                                                       0.5d0*Cijk(s,3,3) * coords_old(3,r) * coords_old(3,r)
+                enddo
+            enddo
+
+            if (nbc.eq.0) then
+                call NEIGH_RVEC_neighborlist(.true., nParts, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            elseif (nbc.eq.2) then
+                call NEIGH_RVEC_neighborlist(.false., nParts, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            endif
             
             ier = kim_api_model_compute(pkim)
             if (ier.lt.KIM_STATUS_OK) then
@@ -1264,303 +1626,27 @@ subroutine numerical_check(pkim,FCCSpacing)
                stop
             endif
 
-            if (t .eq. 1) then
-                energy_plus = energy
-            else
-                energy_neg = energy
+            if (p .eq. 1 .or. p .eq. 4) then
+                energy_plus = energy_plus + energy
+            elseif (p .eq. 2 .or. p .eq. 3) then
+                energy_neg = energy_neg + energy
             endif
+
         enddo
 
-        ! We now have energy0, energy_plus and energy_neg
-        Cijkl_numerical(p,q,p,q) = (energy_plus + energy_neg - 2._cd * energy0)/(eps**2)
-
-    enddo
-
-
-    p = 1
-    q = 1
-    r = 2
-    s = 2
-    do t=1,4
-        coords = coords_old
-        gradU  = 0._cd
-        if (t .eq. 1) then
-            gradU(p,q) = eps
-            gradU(r,s) = eps
-        elseif (t .eq. 2) then
-            gradU(p,q) = eps
-            gradU(r,s) = -eps
-        elseif (t .eq. 3) then
-            gradU(p,q) = -eps
-            gradU(r,s) = eps
+        if ( i .eq. k .and. j .eq. l .and. m .eq. n) then
+            Dijmkln_numerical(i,j,m,k,l,n) = ((energy_plus - energy_neg)/(eps**2))
         else
-            gradU(p,q) = -eps
-            gradU(r,s) = -eps
+            Dijmkln_numerical(i,j,m,k,l,n) = ((energy_plus - energy_neg)/(4._cd * eps**2))
         endif
-
-        ! Deform
-        do partIndex = 1,N
-            do xc=1,3
-                do yc=1,3
-                    coords(xc,partIndex) = coords(xc,partIndex) + gradU(xc,yc) * coords_old(yc,partIndex)
-                enddo
-            enddo
-        enddo
-        
-        ! Now compute energy
-        ier = kim_api_model_compute(pkim)
-        if (ier.lt.KIM_STATUS_OK) then
-           idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                       "kim_api_model_compute", ier)
-           stop
-        endif
-
-        if (t .eq. 1 .or. t .eq. 4) then
-            energy_plus = energy_plus + energy
-        elseif (t .eq. 2 .or. t .eq. 3) then
-            energy_neg = energy_neg + energy
-        endif
-    enddo
-
-    ! We now have energy0, energy_plus and energy_neg
-    Cijkl_numerical(p,q,r,s) = (energy_plus - energy_neg)/(4._cd * eps**2)
-
-    write(cunit, *) "c11_numerical = ",Cijkl_numerical(1,1,1,1)/((FCCspacing**3)/4._cd)
-    write(cunit, *) "c12_numerical = ",Cijkl_numerical(1,1,2,2)/((FCCspacing**3)/4._cd)
-    write(cunit, *) "c44_numerical = ",Cijkl_numerical(1,2,1,2)/((FCCspacing**3)/4._cd)
-
-    deallocate(coords_old)
-    close(cunit)
-end subroutine numerical_check
-
-subroutine nonuniform_deformation(pkim,Dijmkln,FCCSpacing)
-    use mod_global
-    use KIM_API_F03
-    use coordinates
-    implicit none
-    
-    ! Passed variables
-    type(c_ptr),   intent(in)  :: pkim
-    real(c_double), intent(in) :: Dijmkln(DIM,DIM,DIM,DIM,DIM,DIM)
-    real(c_double)             :: FCCSpacing
-
-    ! Local variables
-    real(c_double), allocatable            :: coords_old(:,:)
-    integer(c_int)                         :: p,q,k,l,nsteps,ier,idum
-    real(c_double)                         :: sgmax,EnergyDiff,energy0
-    real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Cijk_new, Eijk
-    integer(c_int)                         :: dunit
-    integer,external                       :: GetFreeUnit
-
-    integer(c_int), pointer :: N;       type(c_ptr) :: pnParts
-    real(c_double), pointer :: cutoff;  type(c_ptr) :: pcutoff
-    real(c_double), pointer :: energy;  type(c_ptr) :: penergy
-
-    dunit = GetFreeUnit()
-    open(unit=dunit,file='output/Dijmkln_numerical.out',status='replace')
-
-    ! Unpack data from KIM object
-    !
-    call kim_api_getm_data(pkim, ier, &
-       "numberOfParticles",           pnParts,          1,                                   &
-       "cutoff",                      pcutoff,          1,                                   &
-       "energy",                      penergy,          1)
-
-    if (ier.lt.KIM_STATUS_OK) then
-        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                     "kim_api_getm_data", ier)
-        stop
-    endif
-
-    call c_f_pointer(pnParts, N)
-    call c_f_pointer(pcutoff, cutoff)
-    call c_f_pointer(penergy, energy)
-
-    allocate(coords_old(DIM,N))
-    coords_old      = coords
-    energy0         = energy
-
-    do p=2,N
-        coords_old(:,p) = coords_old(:,p) - coords_old(:,1)
-    enddo
-    coords_old(:,MiddlePartId) = 0._cd
-
-    nsteps = 100
-    sgmax = 0.005d0
-    do q = 1,nsteps !Deformation step
-        do p=1,4
-            Eijk = 0.d0
-            Cijk = 0.d0
-            select case(p)
-                case(1)
-                    Eijk(1,1,1) = 1.d0
-                    EnergyDiff = 0.5d0*Dijmkln(1,1,1,1,1,1)*(q*sgmax/nsteps)**2 
-                case(2)
-                    Eijk(1,1,2) = 1.d0
-                    EnergyDiff = 0.5d0*Dijmkln(1,1,2,1,1,2)*(q*sgmax/nsteps)**2 
-                case(3)
-                    Eijk(1,2,1) = 1.0d0
-                    Eijk(2,1,1) = 1.0d0
-                    EnergyDiff = 2.d0*Dijmkln(1,2,1,1,2,1)*(q*sgmax/nsteps)**2 
-                case(4)
-                    Eijk(1,2,3) = 1.0d0
-                    Eijk(2,1,3) = 1.0d0
-                    EnergyDiff = 2.d0*Dijmkln(1,2,3,1,2,3)*(q*sgmax/nsteps)**2 
-            end select
-            call Calculate_Cijk(Eijk,Cijk)
-
-
-            Cijk_new = Cijk * q * sgmax / nsteps
-            coords = coords_old
-            do k=1,N
-                do l=1,3
-                   coords(l,k)         = coords(l,k) + 0.5d0*Cijk_new(l,1,1) * coords_old(1,k) * coords_old(1,k) +   &
-                                                       0.5d0*Cijk_new(l,1,2) * coords_old(1,k) * coords_old(2,k) +   &
-                                                       0.5d0*Cijk_new(l,1,3) * coords_old(1,k) * coords_old(3,k) +   &
-                                                       0.5d0*Cijk_new(l,2,1) * coords_old(2,k) * coords_old(1,k) +   &
-                                                       0.5d0*Cijk_new(l,2,2) * coords_old(2,k) * coords_old(2,k) +   &
-                                                       0.5d0*Cijk_new(l,2,3) * coords_old(2,k) * coords_old(3,k) +   &
-                                                       0.5d0*Cijk_new(l,3,1) * coords_old(3,k) * coords_old(1,k) +   &
-                                                       0.5d0*Cijk_new(l,3,2) * coords_old(3,k) * coords_old(2,k) +   &
-                                                       0.5d0*Cijk_new(l,3,3) * coords_old(3,k) * coords_old(3,k)
-                enddo
-            enddo
-
-            ier = kim_api_model_compute(pkim)
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                           "kim_api_model_compute", ier)
-               stop
-            endif
-
-            write(dunit,*) q*sgmax/nsteps, (energy-energy0)* 4.d0/(FCCSpacing**3),EnergyDiff
-        enddo
     enddo
 
     coords = coords_old
-    close(dunit)
 
     deallocate(coords_old)
 
-end subroutine nonuniform_deformation
 
-subroutine write_results(Cijkl,Dijmkln)
-    use mod_global
-    implicit none
-    ! Transferred variables
-    real(c_double), intent(in) :: Cijkl(DIM,DIM,DIM,DIM), &
-                                  Dijmkln(DIM,DIM,DIM,DIM,DIM,DIM)
-    ! Local variables
-    integer(c_int)             :: cunit,dunit,runit
-    integer,external           :: GetFreeUnit
-    character(len=1)           :: cr
-
-    cr = char(10)
-
-    cunit = GetFreeUnit()
-    open(unit=cunit,file='output/Cijkl.out',status='replace')
-    dunit = GetFreeUnit()
-    open(unit=dunit,file='output/Dijmkln.out',status='replace')
-    
-    write(cunit, *) "c11 = ",Cijkl(1,1,1,1)
-    write(cunit, *) "c12 = ",Cijkl(1,1,2,2)
-    write(cunit, *) "c44 = ",Cijkl(1,2,1,2)
-
-    write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1)
-    write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2)
-    write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1)
-    write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2)
-    write(dunit,*) "D112121 = ",Dijmkln(1,1,2,1,2,1)
-    write(dunit,*) "D112233 = ",Dijmkln(1,1,2,2,3,3)
-    write(dunit,*) "D112332 = ",Dijmkln(1,1,2,3,3,2)
-    write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1)
-    write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3)
-    write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3)
-    write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2)
-
-    close(cunit)
-    close(dunit)
-
-    ! Now write the results.edn file
-    runit = GetFreeUnit()
-    open(unit=runit,file='output/results.edn',status='replace')
-    write(runit,*) &
-    '{'                               // cr //  &
-    '   "short-name" {'               // cr //  &
-    '       "source-value" ['         // cr //  &
-    '           "fcc"'                // cr //  &
-    '       ]'                        // cr //  &
-    '   }'                            // cr //  &
-    '    "a" {'                                    // cr //  &
-    '        "si-unit" "m"'                        // cr //  &
-    '        "source-unit" "angstrom"'             // cr //  &
-    '        "si-value" 5.24859e-10'               // cr //  &
-    '        "source-value" 5.23232'               // cr //  &
-    '    }'                                        // cr //  &
-    '    "wyckoff-species" {'                      // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            "Ar" '                            // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "wyckoff-multiplicity-and-letter" {'      // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            "4a"'                             // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "property-id" "tag:staff@noreply.openkim.org,2014-04-15:property/cohesive-potential-energy-cubic-crystal"'    // cr //  &
-    '    "space-group" {'                          // cr //  &
-    '        "source-value" "Fm-3m"'               // cr //  &
-    '    }'                                        // cr //  &
-    '    "cohesive-potential-energy" {'            // cr //  &
-    '        "si-unit" "kg m^2 / s^2"'             // cr //  &
-    '        "source-unit" "eV"'                   // cr //  &
-    '        "si-value" 1.3859709e-20'             // cr //  &
-    '        "source-value" 0.0865055077405508'    // cr //  &
-    '    }'                                        // cr //  &
-    '    "basis-atom-coordinates" {'               // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0.5'                          // cr //  &
-    '                0.5'                          // cr //  &
-    '            ]'                                // cr //  & 
-    '            ['                                // cr //  &
-    '                0.5 '                         // cr //  &
-    '                0 '                           // cr //  &
-    '                0.5'                          // cr //  &
-    '            ]'                                // cr //  &
-    '            ['                                // cr //  &
-    '                0.5'                          // cr //  &
-    '                0.5'                          // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "wyckoff-coordinates" {'                  // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "species" {'                              // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "instance-id" 1'                          // cr //  &
-'}'
-end subroutine write_results
+end subroutine numerical_check_Dijmkln
 
 integer function GetFreeUnit()
     implicit none
