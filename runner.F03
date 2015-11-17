@@ -774,9 +774,9 @@ program runner
 
 
     ! The loop over the atoms of the unit cell starts here
-    do ind = 1,numParticles_PrimitiveCell
+    !do ind = 1,numParticles_PrimitiveCell
         ! Interchange coordinates of MiddlePartId with that of the index
-        MiddlePartId = ind
+        MiddlePartId = 1
 
         ! compute neighbor lists
         if (nbc.eq.0) then
@@ -806,7 +806,6 @@ program runner
                                      "kim_api_model_compute", ier)
             stop
         endif
-
         ! print results to screen
         print '(80(''-''))'
         print '("This is Test             : ",A)', trim(testname)
@@ -833,14 +832,17 @@ program runner
         ! Perform the following non-uniform deformation which corresponts to zero strain
         ! and infinitesimal first strain gradient
 
-        call numerical_check_Dijmkln(pkim,nbc)
+        !call numerical_check_Dijmkln(pkim,nbc)
         call numerical_check_Cijkl(pkim,nbc)
-    enddo
+    !enddo
 
     Cijkl             = Cijkl/AtomVol
     Dijmkln           = Dijmkln/AtomVol
     Cijkl_numerical   = Cijkl_numerical/AtomVol
     Dijmkln_numerical = Dijmkln_numerical/AtomVol
+
+    write(*,*) Cijkl(1,1,1,1),"reached"
+    stop
 
     call write_results
 
@@ -1526,6 +1528,7 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     real(c_double), allocatable            :: coords_old(:,:)
     integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,ier,idum
     real(c_double)                         :: energy_plus,energy_neg,eps
+    real(c_double), dimension(DIM)         :: shift
     real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
 
     integer(c_int), pointer :: nParts;       type(c_ptr) :: pnParts
@@ -1553,16 +1556,15 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     call c_f_pointer(pcutoff, cutoff)
     call c_f_pointer(pneighObject, neighObject)
 
-
     allocate(coords_old(DIM,nParts))
     coords_old      = coords
     eps             = 1.e-3
     Dijmkln_numerical = 0._cd
 
-    do p=2,nParts
-        coords_old(:,p) = coords_old(:,p) - coords_old(:,MiddlePartId)
+    shift(:) = coords_old(:,MiddlePartId)
+    do p=1,nParts
+        coords_old(:,p) = coords_old(:,p) - shift(:)
     enddo
-    coords_old(:,MiddlePartId) = 0._cd
 
 
     do q=1,11
