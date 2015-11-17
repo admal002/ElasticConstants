@@ -17,9 +17,8 @@
 !
 ! CDDL HEADER END
 !
-
 !
-! Copyright (c) 2013--2014, Regents of the University of Minnesota.
+! Copyright (c) 2015--2016, University of Californa Los Angeles
 ! All rights reserved.
 !
 ! Contributors:
@@ -55,15 +54,15 @@ module mod_global
 end module mod_global
 
 !-------------------------------------------------------------------------------
-! module coordinates:
+! module mod_coordinates:
 !     Contains coordinates and the middle particle ID of the sysetem
 !
-module coordinates
+module mod_coordinates
     use mod_global
     implicit none
     real(c_double), pointer :: coords(:,:); type(c_ptr) :: pcoor
-    integer(c_int)          :: MiddlePartId
-end module coordinates
+    integer(c_int) :: MiddlePartId
+end module mod_coordinates
 
 !-------------------------------------------------------------------------------
 !
@@ -232,7 +231,7 @@ contains
 
     function process_dedr(pkim,deidr,r,pdx,i,j)bind(c)
     use KIM_API_F03
-    use coordinates
+    use mod_coordinates
     implicit none
 
     ! Passed variables
@@ -259,7 +258,7 @@ contains
 
     function process_d2edr2(pkim,d2edr2,pr,pdx,pi,pj)bind(c)
     use KIM_API_F03
-    use coordinates
+    use mod_coordinates
     implicit none
 
     ! Passed variables
@@ -565,7 +564,7 @@ end module mod_process
 program runner
     use mod_global
     use KIM_API_F03
-    use coordinates
+    use mod_coordinates
     use mod_neighborlist
     use mod_process, only : Cijkl,Cijkl_numerical,      &
                             Dijmkln,Dijmkln_numerical,  &
@@ -609,6 +608,7 @@ program runner
     real(c_double), pointer :: cutoff;              type(c_ptr) :: pcutoff
     real(c_double), pointer :: energy;              type(c_ptr) :: penergy
     real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
+    integer :: numParticles_PrimitiveCell,ind
 
     Cijkl   = 0._cd
     Dijmkln = 0._cd
@@ -624,11 +624,17 @@ program runner
 
 
     if (CrystalStructure .eq. 'fcc') then
-      N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
+      N = 4*(nCellsPerSide)**3
       AtomVol = (LatticeSpacing**3)/4._cd
+      numParticles_PrimitiveCell = 1
     elseif (CrystalStructure .eq. 'bcc') then
-      N = 2*(nCellsPerSide)**3 + 3*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
+      N = 2*(nCellsPerSide)**3
       AtomVol = (LatticeSpacing**3)/2._cd
+      numParticles_PrimitiveCell = 1
+    elseif (CrystalStructure .eq. 'diamond') then
+      N = 5*(nCellsPerSide)**3
+      AtomVol = (LatticeSpacing**3)/4._cd
+      numParticles_PrimitiveCell = 2
     else
       write(*,*) "Error: Crystal structure ", CrystalStructure," not supported."
       stop
@@ -753,73 +759,83 @@ program runner
 
     ! set up the cluster part positions
     if (CrystalStructure .eq. 'fcc') then
-      call create_FCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
-                                    MiddlePartId)
+        call create_FCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
+                                      MiddlePartId)
     elseif (CrystalStructure .eq. 'bcc') then
-      call create_BCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
-                                    MiddlePartId)
+        call create_BCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
+                                      MiddlePartId)
+    elseif (CrystalStructure .eq. 'diamond') then
+        call create_diamond_configuration(LatticeSpacing, nCellsPerSide,  coords )
     endif
 
     ! set boxSideLengths large enough to make the cluster isolated
     if (nbc.eq.4 .or. nbc.eq.5) boxSideLengths(:) = nCellsPerSide*LatticeSpacing
 
-    ! compute neighbor lists
-    if (nbc.eq.0) then
-        call NEIGH_RVEC_neighborlist(.true., N, coords, (cutoff+cutpad), &
-                                          MiddlePartId, neighObject)
-    elseif (nbc.eq.1) then
-        call NEIGH_PURE_neighborlist(.true., N, coords, (cutoff+cutpad), &
-                                          MiddlePartId, neighObject)
-    elseif (nbc.eq.2) then
-        call NEIGH_RVEC_neighborlist(.false., N, coords, (cutoff+cutpad), &
-                                          MiddlePartId, neighObject)
-    elseif (nbc.eq.3) then
-        call NEIGH_PURE_neighborlist(.false., N, coords, (cutoff+cutpad), &
-                                          MiddlePartId, neighObject)
-    elseif (nbc.eq.4) then
-        call MI_OPBC_neighborlist(.true., N, coords, (cutoff+cutpad), &
-                                        boxSideLengths, MiddlePartId, neighObject)
-    elseif (nbc.eq.5) then
-        call MI_OPBC_neighborlist(.false., N, coords, (cutoff+cutpad), &
-                                       boxSideLengths, MiddlePartId, neighObject)
-    endif
 
-    ! Call model compute
-    ier = kim_api_model_compute(pkim)
-    if (ier.lt.KIM_STATUS_OK) then
-        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                 "kim_api_model_compute", ier)
-        stop
-    endif
 
-    ! print results to screen
-    print '(80(''-''))'
-    print '("This is Test             : ",A)', trim(testname)
-    print '("Results for KIM Model    : ",A)', trim(modelname)
-    print '("Crystal strucutre        : ",A)', CrystalStructure
-    print '("Species                  : ",A)', species
-    print '("Dependent Test           : ",A)', trim(DependentTestname)
-    print '("Queried Lattice constant : ",F20.15)', LatticeSpacing
-    print '("Using NBC                : ",A)', trim(NBC_Method)
+    ! The loop over the atoms of the unit cell starts here
+    do ind = 1,numParticles_PrimitiveCell
+        ! Interchange coordinates of MiddlePartId with that of the index
+        MiddlePartId = ind
 
-    !-------------------------------------------------------------------------------
-    ! Numerical checks
-    !
+        ! compute neighbor lists
+        if (nbc.eq.0) then
+            call NEIGH_RVEC_neighborlist(.true., N, coords, (cutoff+cutpad), &
+                                              MiddlePartId, neighObject)
+        elseif (nbc.eq.1) then
+            call NEIGH_PURE_neighborlist(.true., N, coords, (cutoff+cutpad), &
+                                              MiddlePartId, neighObject)
+        elseif (nbc.eq.2) then
+            call NEIGH_RVEC_neighborlist(.false., N, coords, (cutoff+cutpad), &
+                                              MiddlePartId, neighObject)
+        elseif (nbc.eq.3) then
+            call NEIGH_PURE_neighborlist(.false., N, coords, (cutoff+cutpad), &
+                                              MiddlePartId, neighObject)
+        elseif (nbc.eq.4) then
+            call MI_OPBC_neighborlist(.true., N, coords, (cutoff+cutpad), &
+                                            boxSideLengths, MiddlePartId, neighObject)
+        elseif (nbc.eq.5) then
+            call MI_OPBC_neighborlist(.false., N, coords, (cutoff+cutpad), &
+                                           boxSideLengths, MiddlePartId, neighObject)
+        endif
 
-    ! Switch off process_dedr and process_d2edr2
-    call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_FALSE,ier)
-    call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_FALSE,ier)
-    if (ier.lt.KIM_STATUS_OK) then
-        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                 "kim_api_set_compute", ier)
-        stop
-    endif
+        ! Call model compute
+        ier = kim_api_model_compute(pkim)
+        if (ier.lt.KIM_STATUS_OK) then
+            idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                     "kim_api_model_compute", ier)
+            stop
+        endif
 
-    ! Perform the following non-uniform deformation which corresponts to zero strain
-    ! and infinitesimal first strain gradient
+        ! print results to screen
+        print '(80(''-''))'
+        print '("This is Test             : ",A)', trim(testname)
+        print '("Results for KIM Model    : ",A)', trim(modelname)
+        print '("Crystal strucutre        : ",A)', CrystalStructure
+        print '("Species                  : ",A)', species
+        print '("Dependent Test           : ",A)', trim(DependentTestname)
+        print '("Queried Lattice constant : ",F20.15)', LatticeSpacing
+        print '("Using NBC                : ",A)', trim(NBC_Method)
 
-    call numerical_check_Dijmkln(pkim,nbc)
-    call numerical_check_Cijkl(pkim,nbc)
+        !-------------------------------------------------------------------------------
+        ! Numerical checks
+        !
+
+        ! Switch off process_dedr and process_d2edr2
+        call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_FALSE,ier)
+        call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_FALSE,ier)
+        if (ier.lt.KIM_STATUS_OK) then
+            idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                     "kim_api_set_compute", ier)
+            stop
+        endif
+
+        ! Perform the following non-uniform deformation which corresponts to zero strain
+        ! and infinitesimal first strain gradient
+
+        call numerical_check_Dijmkln(pkim,nbc)
+        call numerical_check_Cijkl(pkim,nbc)
+    enddo
 
     Cijkl             = Cijkl/AtomVol
     Dijmkln           = Dijmkln/AtomVol
@@ -1259,9 +1275,71 @@ subroutine create_BCC_configuration(LatticeSpacing, nCellsPerSide, periodic, &
 
 end subroutine create_BCC_configuration
 
+subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
+                                        coords)
+    use mod_global
+    use KIM_API_F03
+    implicit none
+
+    !-- Transferred variables
+    real(c_double), intent(in)  :: LatticeSpacing
+    integer(c_int), intent(in)  :: nCellsPerSide
+    real(c_double), intent(out) :: coords(DIM,*)
+    !
+    ! cluster setup variables
+    !
+    real(c_double) FCCshifts(DIM,5)
+    real(c_double) latVec(DIM)
+    integer(c_int) a, i, j, k, m
+
+    ! Create a cubic FCC cluster
+    !
+    FCCshifts(1,1) = 0.0_cd
+    FCCshifts(2,1) = 0.0_cd
+    FCCshifts(3,1) = 0.0_cd
+    FCCshifts(1,2) = 0.25_cd*LatticeSpacing
+    FCCshifts(2,2) = 0.25_cd*LatticeSpacing
+    FCCshifts(3,2) = 0.25_cd*LatticeSpacing
+    FCCshifts(1,3) = 0.5_cd*LatticeSpacing
+    FCCshifts(2,3) = 0.5_cd*LatticeSpacing
+    FCCshifts(3,3) = 0.0_cd
+    FCCshifts(1,4) = 0.5_cd*LatticeSpacing
+    FCCshifts(2,4) = 0.0_cd
+    FCCshifts(3,4) = 0.5_cd*LatticeSpacing
+    FCCshifts(1,5) = 0.0_cd
+    FCCshifts(2,5) = 0.5_cd*LatticeSpacing
+    FCCshifts(3,5) = 0.5_cd*LatticeSpacing
+
+    a = 2            ! leave space for middle particle as particle #1
+    do i=1,nCellsPerSide
+     latVec(1) = (i-1)*LatticeSpacing
+     do j=1,nCellsPerSide
+        latVec(2) = (j-1)*LatticeSpacing
+        do k=1,nCellsPerSide
+           latVec(3) = (k-1)*LatticeSpacing
+           do m=1,5
+              a = a+1
+              coords(:,a) = latVec + FCCshifts(:,m)
+              if ((i.eq.nCellsPerside/2+1).and.(j.eq.nCellsPerSide/2+1) .and. &
+                   (k.eq.nCellsPerSide/2+1) ) then
+                if (m .eq. 1) then
+                     coords(:,1) = latVec + FCCshifts(:,m) ! put middle particle as #1
+                elseif (m .eq. 2) then
+                    coords(:,2) = latVec + FCCshifts(:,m)
+                endif
+                 a = a - 1
+              endif
+           enddo
+        enddo
+     enddo
+ enddo
+    return
+
+end subroutine create_diamond_configuration
+
 subroutine numerical_check_Cijkl(pkim,nbc)
     use mod_global
-    use coordinates
+    use mod_coordinates
     use mod_process, only : Cijkl_numerical
     use mod_neighborlist, only : neighObject_type
     use KIM_API_F03
@@ -1435,7 +1513,7 @@ end subroutine numerical_check_Cijkl
 subroutine numerical_check_Dijmkln(pkim,nbc)
     use mod_global
     use KIM_API_F03
-    use coordinates
+    use mod_coordinates
     use mod_neighborlist, only : neighObject_type
     use mod_process, only : Dijmkln_numerical
     implicit none
@@ -1482,7 +1560,7 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     Dijmkln_numerical = 0._cd
 
     do p=2,nParts
-        coords_old(:,p) = coords_old(:,p) - coords_old(:,1)
+        coords_old(:,p) = coords_old(:,p) - coords_old(:,MiddlePartId)
     enddo
     coords_old(:,MiddlePartId) = 0._cd
 
