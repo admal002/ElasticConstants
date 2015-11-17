@@ -792,7 +792,6 @@ program runner
 
     ! The loop over the atoms of the unit cell starts here
     do ind = 1,numParticles_PrimitiveCell
-    !do ind = 1,1
 
         ! Switch on process_dedr and process_d2edr2
         call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
@@ -835,6 +834,7 @@ program runner
                                      "kim_api_model_compute", ier)
             stop
         endif
+
         !-------------------------------------------------------------------------------
         ! Numerical checks
         !
@@ -855,10 +855,10 @@ program runner
         call numerical_check_Cijkl(pkim,nbc)
     enddo
 
-    Cijkl             = Cijkl/AtomVol
-    Dijmkln           = Dijmkln/AtomVol
-    Cijkl_numerical   = Cijkl_numerical/AtomVol
-    Dijmkln_numerical = Dijmkln_numerical/AtomVol
+    Cijkl             = Cijkl/(numParticles_PrimitiveCell*AtomVol)
+    Dijmkln           = Dijmkln/(numParticles_PrimitiveCell*AtomVol)
+    Cijkl_numerical   = Cijkl_numerical/(numParticles_PrimitiveCell*AtomVol)
+    Dijmkln_numerical = Dijmkln_numerical/(numParticles_PrimitiveCell*AtomVol)
 
 
     call write_results
