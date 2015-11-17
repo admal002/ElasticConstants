@@ -452,6 +452,7 @@ subroutine write_results
     write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1),Dijmkln_numerical(1,2,1,1,2,1)
     write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
     write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
+    write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2)
 
     close(cunit)
     close(dunit)
@@ -578,7 +579,7 @@ program runner
 
     integer(c_int)   :: N,dunit
     real(c_double)   :: LatticeSpacing,AtomVol
-    character(len=3) :: CrystalStructure
+    character(len=20):: CrystalStructure
     character(len=2) :: Species
     integer,external :: GetFreeUnit
 
@@ -609,9 +610,13 @@ program runner
     real(c_double), pointer :: energy;              type(c_ptr) :: penergy
     real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
     integer :: numParticles_PrimitiveCell,ind
+    real(c_double), allocatable :: coords_original(:,:)
 
     Cijkl   = 0._cd
     Dijmkln = 0._cd
+    Dijmkln_numerical = 0._cd
+    Cijkl_numerical   = 0._cd
+
 
     ! Get KIM Model name to use
     read(*,*,err=100) testname
@@ -623,20 +628,20 @@ program runner
     read(*,*,err=100) LatticeSpacing
 
 
-    if (CrystalStructure .eq. 'fcc') then
-      N = 4*(nCellsPerSide)**3
+    if (trim(CrystalStructure) .eq. 'fcc') then
+      N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
       AtomVol = (LatticeSpacing**3)/4._cd
       numParticles_PrimitiveCell = 1
-    elseif (CrystalStructure .eq. 'bcc') then
-      N = 2*(nCellsPerSide)**3
+    elseif (trim(CrystalStructure) .eq. 'bcc') then
+      N = 2*(nCellsPerSide)**3 + 3*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
       AtomVol = (LatticeSpacing**3)/2._cd
       numParticles_PrimitiveCell = 1
-    elseif (CrystalStructure .eq. 'diamond') then
-      N = 5*(nCellsPerSide)**3
-      AtomVol = (LatticeSpacing**3)/4._cd
+    elseif (trim(CrystalStructure) .eq. 'diamond') then
+      N = 8*(nCellsPerSide)**3
+      AtomVol = (LatticeSpacing**3)/8._cd
       numParticles_PrimitiveCell = 2
     else
-      write(*,*) "Error: Crystal structure ", CrystalStructure," not supported."
+      write(*,*) "Error: Crystal structure ", trim(CrystalStructure)," not supported."
       stop
     endif
 
@@ -758,25 +763,49 @@ program runner
     endif
 
     ! set up the cluster part positions
-    if (CrystalStructure .eq. 'fcc') then
+    if (trim(CrystalStructure) .eq. 'fcc') then
         call create_FCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
                                       MiddlePartId)
-    elseif (CrystalStructure .eq. 'bcc') then
+    elseif (trim(CrystalStructure) .eq. 'bcc') then
         call create_BCC_configuration(LatticeSpacing, nCellsPerSide, .false., coords, &
                                       MiddlePartId)
-    elseif (CrystalStructure .eq. 'diamond') then
-        call create_diamond_configuration(LatticeSpacing, nCellsPerSide,  coords )
+    elseif (trim(CrystalStructure) .eq. 'diamond') then
+        call create_diamond_configuration(LatticeSpacing, nCellsPerSide,  coords, MiddlePartId)
     endif
 
     ! set boxSideLengths large enough to make the cluster isolated
     if (nbc.eq.4 .or. nbc.eq.5) boxSideLengths(:) = nCellsPerSide*LatticeSpacing
 
+    ! print results to screen
+    print '(80(''-''))'
+    print '("This is Test             : ",A)', trim(testname)
+    print '("Results for KIM Model    : ",A)', trim(modelname)
+    print '("Crystal strucutre        : ",A)', trim(CrystalStructure)
+    print '("Species                  : ",A)', species
+    print '("Dependent Test           : ",A)', trim(DependentTestname)
+    print '("Queried Lattice constant : ",F20.15)', LatticeSpacing
+    print '("Using NBC                : ",A)', trim(NBC_Method)
+
+    allocate(coords_original(DIM,N))
+    coords_original = coords
 
 
     ! The loop over the atoms of the unit cell starts here
-    !do ind = 1,numParticles_PrimitiveCell
+    do ind = 1,numParticles_PrimitiveCell
+    !do ind = 1,1
+
+        ! Switch on process_dedr and process_d2edr2
+        call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
+        call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
+        if (ier.lt.KIM_STATUS_OK) then
+            idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                     "kim_api_set_compute", ier)
+            stop
+        endif
+
         ! Interchange coordinates of MiddlePartId with that of the index
-        MiddlePartId = 1
+        coords(:,MiddlePartId) = coords_original(:,ind)
+        coords(:,ind)          = coords_original(:,MiddlePartId)
 
         ! compute neighbor lists
         if (nbc.eq.0) then
@@ -806,16 +835,6 @@ program runner
                                      "kim_api_model_compute", ier)
             stop
         endif
-        ! print results to screen
-        print '(80(''-''))'
-        print '("This is Test             : ",A)', trim(testname)
-        print '("Results for KIM Model    : ",A)', trim(modelname)
-        print '("Crystal strucutre        : ",A)', CrystalStructure
-        print '("Species                  : ",A)', species
-        print '("Dependent Test           : ",A)', trim(DependentTestname)
-        print '("Queried Lattice constant : ",F20.15)', LatticeSpacing
-        print '("Using NBC                : ",A)', trim(NBC_Method)
-
         !-------------------------------------------------------------------------------
         ! Numerical checks
         !
@@ -832,17 +851,15 @@ program runner
         ! Perform the following non-uniform deformation which corresponts to zero strain
         ! and infinitesimal first strain gradient
 
-        !call numerical_check_Dijmkln(pkim,nbc)
+        call numerical_check_Dijmkln(pkim,nbc)
         call numerical_check_Cijkl(pkim,nbc)
-    !enddo
+    enddo
 
     Cijkl             = Cijkl/AtomVol
     Dijmkln           = Dijmkln/AtomVol
     Cijkl_numerical   = Cijkl_numerical/AtomVol
     Dijmkln_numerical = Dijmkln_numerical/AtomVol
 
-    write(*,*) Cijkl(1,1,1,1),"reached"
-    stop
 
     call write_results
 
@@ -858,6 +875,7 @@ program runner
                                  "kim_api_model_destroy", ier)
         stop
     endif
+
     call kim_api_free(pkim, ier)
     if (ier.lt.KIM_STATUS_OK) then
         idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
@@ -865,6 +883,7 @@ program runner
         stop
     endif
 
+    deallocate(coords_original)
     stop
 
     100 idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
@@ -1278,7 +1297,7 @@ subroutine create_BCC_configuration(LatticeSpacing, nCellsPerSide, periodic, &
 end subroutine create_BCC_configuration
 
 subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
-                                        coords)
+                                        coords, MiddlePartId)
     use mod_global
     use KIM_API_F03
     implicit none
@@ -1287,10 +1306,11 @@ subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
     real(c_double), intent(in)  :: LatticeSpacing
     integer(c_int), intent(in)  :: nCellsPerSide
     real(c_double), intent(out) :: coords(DIM,*)
+    integer(c_int), intent(out) :: MiddlePartId
     !
     ! cluster setup variables
     !
-    real(c_double) FCCshifts(DIM,5)
+    real(c_double) FCCshifts(DIM,8)
     real(c_double) latVec(DIM)
     integer(c_int) a, i, j, k, m
 
@@ -1299,19 +1319,36 @@ subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
     FCCshifts(1,1) = 0.0_cd
     FCCshifts(2,1) = 0.0_cd
     FCCshifts(3,1) = 0.0_cd
+
     FCCshifts(1,2) = 0.25_cd*LatticeSpacing
     FCCshifts(2,2) = 0.25_cd*LatticeSpacing
     FCCshifts(3,2) = 0.25_cd*LatticeSpacing
-    FCCshifts(1,3) = 0.5_cd*LatticeSpacing
-    FCCshifts(2,3) = 0.5_cd*LatticeSpacing
-    FCCshifts(3,3) = 0.0_cd
-    FCCshifts(1,4) = 0.5_cd*LatticeSpacing
-    FCCshifts(2,4) = 0.0_cd
-    FCCshifts(3,4) = 0.5_cd*LatticeSpacing
-    FCCshifts(1,5) = 0.0_cd
-    FCCshifts(2,5) = 0.5_cd*LatticeSpacing
-    FCCshifts(3,5) = 0.5_cd*LatticeSpacing
 
+    FCCshifts(1,3) = 0.25_cd*LatticeSpacing
+    FCCshifts(2,3) = 0.75_cd*LatticeSpacing
+    FCCshifts(3,3) = 0.75_cd*LatticeSpacing
+
+    FCCshifts(1,4) = 0.75_cd*LatticeSpacing
+    FCCshifts(2,4) = 0.25_cd*LatticeSpacing
+    FCCshifts(3,4) = 0.75_cd*LatticeSpacing
+
+    FCCshifts(1,5) = 0.75_cd*LatticeSpacing
+    FCCshifts(2,5) = 0.75_cd*LatticeSpacing
+    FCCshifts(3,5) = 0.25_cd*LatticeSpacing
+
+    FCCshifts(1,6) = 0.5_cd*LatticeSpacing
+    FCCshifts(2,6) = 0.5_cd*LatticeSpacing
+    FCCshifts(3,6) = 0.0_cd
+
+    FCCshifts(1,7) = 0.5_cd*LatticeSpacing
+    FCCshifts(2,7) = 0.0_cd
+    FCCshifts(3,7) = 0.5_cd*LatticeSpacing
+
+    FCCshifts(1,8) = 0.0_cd
+    FCCshifts(2,8) = 0.5_cd*LatticeSpacing
+    FCCshifts(3,8) = 0.5_cd*LatticeSpacing
+
+    MiddlePartID = 1 ! Always put middle particle as #1
     a = 2            ! leave space for middle particle as particle #1
     do i=1,nCellsPerSide
      latVec(1) = (i-1)*LatticeSpacing
@@ -1319,17 +1356,18 @@ subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
         latVec(2) = (j-1)*LatticeSpacing
         do k=1,nCellsPerSide
            latVec(3) = (k-1)*LatticeSpacing
-           do m=1,5
+           do m=1,8
               a = a+1
               coords(:,a) = latVec + FCCshifts(:,m)
               if ((i.eq.nCellsPerside/2+1).and.(j.eq.nCellsPerSide/2+1) .and. &
                    (k.eq.nCellsPerSide/2+1) ) then
                 if (m .eq. 1) then
                      coords(:,1) = latVec + FCCshifts(:,m) ! put middle particle as #1
+                     a = a - 1
                 elseif (m .eq. 2) then
                     coords(:,2) = latVec + FCCshifts(:,m)
+                     a = a - 1
                 endif
-                 a = a - 1
               endif
            enddo
         enddo
@@ -1385,7 +1423,6 @@ subroutine numerical_check_Cijkl(pkim,nbc)
     ! Initialize
     coords_old      = coords
     eps             = 1.e-4
-    Cijkl_numerical = 0._cd
 
     do u=1,3
         energy_plus = 0._cd
@@ -1501,9 +1538,9 @@ subroutine numerical_check_Cijkl(pkim,nbc)
 
 
         if ( p .eq. r .and. q .eq. s) then
-            Cijkl_numerical(p,q,r,s) = (energy_plus - energy_neg)/(eps**2)
+            Cijkl_numerical(p,q,r,s) = Cijkl_numerical(p,q,r,s) + (energy_plus - energy_neg)/(eps**2)
         else
-            Cijkl_numerical(p,q,r,s) = (energy_plus - energy_neg)/(4._cd * eps**2)
+            Cijkl_numerical(p,q,r,s) = Cijkl_numerical(p,q,r,s) + (energy_plus - energy_neg)/(4._cd * eps**2)
         endif
     enddo
 
@@ -1525,7 +1562,7 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     integer(c_int),intent(in) :: nbc
 
     ! Local variables
-    real(c_double), allocatable            :: coords_old(:,:)
+    real(c_double), allocatable            :: coords_centered(:,:),coords_original(:,:)
     integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,ier,idum
     real(c_double)                         :: energy_plus,energy_neg,eps
     real(c_double), dimension(DIM)         :: shift
@@ -1556,14 +1593,16 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     call c_f_pointer(pcutoff, cutoff)
     call c_f_pointer(pneighObject, neighObject)
 
-    allocate(coords_old(DIM,nParts))
-    coords_old      = coords
-    eps             = 1.e-3
-    Dijmkln_numerical = 0._cd
+    allocate(coords_centered(DIM,nParts))
+    allocate(coords_original(DIM,nParts))
 
-    shift(:) = coords_old(:,MiddlePartId)
+    coords_original = coords
+    coords_centered= coords
+    eps             = 1.e-3
+
+    shift(:) = coords_original(:,MiddlePartId)
     do p=1,nParts
-        coords_old(:,p) = coords_old(:,p) - shift(:)
+        coords_centered(:,p) = coords_centered(:,p) - shift(:)
     enddo
 
 
@@ -1608,7 +1647,7 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
         end select
 
         do p=1,4
-            coords = coords_old
+            coords = coords_centered
             Eijk = 0._cd
             Cijk = 0._cd
 
@@ -1679,15 +1718,15 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
         
             do r=1,nParts
                 do s=1,3
-                   coords(s,r)         = coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_old(1,r) * coords_old(1,r) +   &
-                                                       0.5d0*Cijk(s,1,2) * coords_old(1,r) * coords_old(2,r) +   &
-                                                       0.5d0*Cijk(s,1,3) * coords_old(1,r) * coords_old(3,r) +   &
-                                                       0.5d0*Cijk(s,2,1) * coords_old(2,r) * coords_old(1,r) +   &
-                                                       0.5d0*Cijk(s,2,2) * coords_old(2,r) * coords_old(2,r) +   &
-                                                       0.5d0*Cijk(s,2,3) * coords_old(2,r) * coords_old(3,r) +   &
-                                                       0.5d0*Cijk(s,3,1) * coords_old(3,r) * coords_old(1,r) +   &
-                                                       0.5d0*Cijk(s,3,2) * coords_old(3,r) * coords_old(2,r) +   &
-                                                       0.5d0*Cijk(s,3,3) * coords_old(3,r) * coords_old(3,r)
+                   coords(s,r)         = coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_centered(1,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,1,2) * coords_centered(1,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,1,3) * coords_centered(1,r) * coords_centered(3,r) +   &
+                                                       0.5d0*Cijk(s,2,1) * coords_centered(2,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,2,2) * coords_centered(2,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,2,3) * coords_centered(2,r) * coords_centered(3,r) +   &
+                                                       0.5d0*Cijk(s,3,1) * coords_centered(3,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,3,2) * coords_centered(3,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,3,3) * coords_centered(3,r) * coords_centered(3,r)
                 enddo
             enddo
 
@@ -1715,15 +1754,15 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
         enddo
 
         if ( i .eq. k .and. j .eq. l .and. m .eq. n) then
-            Dijmkln_numerical(i,j,m,k,l,n) = ((energy_plus - energy_neg)/(eps**2))
+            Dijmkln_numerical(i,j,m,k,l,n) = Dijmkln_numerical(i,j,m,k,l,n) + ((energy_plus - energy_neg)/(eps**2))
         else
-            Dijmkln_numerical(i,j,m,k,l,n) = ((energy_plus - energy_neg)/(4._cd * eps**2))
+            Dijmkln_numerical(i,j,m,k,l,n) = Dijmkln_numerical(i,j,m,k,l,n) + ((energy_plus - energy_neg)/(4._cd * eps**2))
         endif
     enddo
 
-    coords = coords_old
+    coords = coords_original
 
-    deallocate(coords_old)
+    deallocate(coords_centered)
 
 
 end subroutine numerical_check_Dijmkln
