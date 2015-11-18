@@ -199,8 +199,10 @@ module mod_process
 use mod_global
 implicit none
 
-real(c_double) :: Cijkl(DIM,DIM,DIM,DIM),Dijmkln(DIM,DIM,DIM,DIM,DIM,DIM)
-real(c_double) :: Cijkl_numerical(DIM,DIM,DIM,DIM),Dijmkln_numerical(DIM,DIM,DIM,DIM,DIM,DIM)
+real(c_double) :: Cijkl(DIM,DIM,DIM,DIM),Dijmkln(DIM,DIM,DIM,DIM,DIM,DIM), &
+                  Tijm(DIM,DIM,DIM), Eijkln(DIM,DIM,DIM,DIM,DIM)
+real(c_double) :: Cijkl_numerical(DIM,DIM,DIM,DIM),Dijmkln_numerical(DIM,DIM,DIM,DIM,DIM,DIM),&
+                  Tijm_numerical(DIM,DIM,DIM)
 
 contains
     subroutine setup_process_KIM_access(pkim)
@@ -246,8 +248,11 @@ contains
 
     call c_f_pointer(pdx,dx,[DIM])
 
+    write(*,*) i,j
     R3 = (coords(:,i) + coords(:,j))/2._cd - coords(:,MiddlePartId)
 
+    Tijm = Tijm + deidr * tensor_prod_3(dx,dx,R3)/r
+    Eijkln = Eijkln - deidr*tensor_prod_5(dx,dx,dx,dx,R3)/(r**3)
     Cijkl = Cijkl - deidr * tensor_prod(dx,dx,dx,dx)/(r**3)
     Dijmkln = Dijmkln - deidr * tensor_prod_6(dx,dx,R3,dx,dx,R3)/(r**3)
     Dijmkln = Dijmkln + deidr * operatorT( tensor_prod(dx,dx,R3,R3)/(2._cd*r) )
@@ -285,7 +290,8 @@ contains
     R3 = (coords(:,i(1)) + coords(:,j(1)))/2._cd - coords(:,MiddlePartId)
     R4 = (coords(:,i(2)) + coords(:,j(2)))/2._cd - coords(:,MiddlePartId)
 
-    Cijkl = Cijkl + d2edr2*tensor_prod(R1,R1,R2,R2)/(r(1)*r(2))
+    Eijkln = Eijkln + d2edr2*tensor_prod_5(R1,R1,R2,R2,R4)/(r(1)*r(2))
+    Cijkl  = Cijkl + d2edr2*tensor_prod(R1,R1,R2,R2)/(r(1)*r(2))
     Dijmkln= Dijmkln + d2edr2*tensor_prod_6(R1,R1,R3,R2,R2,R4)/(r(1)*r(2))
 
 
@@ -401,6 +407,42 @@ contains
     return
     end function tensor_prod
 
+    function tensor_prod_3(vec1,vec2,vec3)
+    implicit none
+    real(c_double),intent(in) :: vec1(DIM),vec2(DIM),vec3(DIM)
+    real(c_double) :: tensor_prod_3(DIM,DIM,DIM)
+
+    integer(c_int) :: p,q,r
+    do r=1,DIM
+        do q=1,DIM
+            do p=1,DIM
+                tensor_prod_3(p,q,r) = vec1(p)*vec2(q)*vec3(r)
+            enddo
+        enddo
+    enddo
+    return
+    end function tensor_prod_3
+
+    function tensor_prod_5(vec1,vec2,vec3,vec4,vec5)
+    implicit none
+    real(c_double),intent(in) :: vec1(DIM),vec2(DIM),vec3(DIM),vec4(DIM),vec5(DIM)
+    real(c_double) :: tensor_prod_5(DIM,DIM,DIM,DIM,DIM)
+
+    integer(c_int) :: p,q,r,s,t
+    do t=1,DIM
+        do s=1,DIM
+            do r=1,DIM
+                do q=1,DIM
+                    do p=1,DIM
+                        tensor_prod_5(p,q,r,s,t) = vec1(p)*vec2(q)*vec3(r)*vec4(s)*vec5(t)
+                    enddo
+                enddo
+            enddo
+        enddo
+    enddo
+    return
+    end function tensor_prod_5
+
     function tensor_prod_6(vec1,vec2,vec3,vec4,vec5,vec6)
     implicit none
     real(c_double),intent(in) :: vec1(DIM),vec2(DIM),vec3(DIM),vec4(DIM),vec5(DIM),vec6(DIM)
@@ -425,9 +467,10 @@ contains
 
 subroutine write_results
     implicit none
+    ! Passed variables
 
     ! Local variables
-    integer(c_int)             :: cunit,dunit,runit
+    integer(c_int)             :: cunit,dunit,runit,tunit,eunit,i,j,k,l,n
     integer,external           :: GetFreeUnit
     character(len=1)           :: cr
 
@@ -435,13 +478,13 @@ subroutine write_results
 
     cunit = GetFreeUnit()
     open(unit=cunit,file='output/Cijkl.out',status='replace')
-    dunit = GetFreeUnit()
-    open(unit=dunit,file='output/Dijmkln.out',status='replace')
-    
     write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
     write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
     write(cunit, *) "c44 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
+    close(cunit)
 
+    dunit = GetFreeUnit()
+    open(unit=dunit,file='output/Dijmkln.out',status='replace')
     write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1)
     write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2),Dijmkln_numerical(1,1,1,1,2,2)
     write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1),Dijmkln_numerical(1,1,1,2,2,1)
@@ -453,9 +496,44 @@ subroutine write_results
     write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
     write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
     write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2)
-
-    close(cunit)
     close(dunit)
+
+    tunit = GetFreeUnit()
+    open(unit=tunit,file='output/Tijm.out',status='replace')
+    write(tunit,*) "T111 = ",Tijm(1,1,1),Tijm_numerical(1,1,1)
+    write(tunit,*) "T221 = ",Tijm(2,2,1),Tijm_numerical(2,2,1)
+    write(tunit,*) "T122 = ",Tijm(1,2,2),Tijm_numerical(1,2,2)
+    write(tunit,*) "T331 = ",Tijm(3,3,1),Tijm_numerical(3,3,1)
+    write(tunit,*) "T133 = ",Tijm(1,3,3),Tijm_numerical(1,3,3)
+    write(tunit,*) "T222 = ",Tijm(2,2,2),Tijm_numerical(2,2,2)
+    write(tunit,*) "T112 = ",Tijm(1,1,2),Tijm_numerical(1,1,2)
+    write(tunit,*) "T121 = ",Tijm(1,2,1),Tijm_numerical(1,2,1)
+    write(tunit,*) "T332 = ",Tijm(3,3,2),Tijm_numerical(3,3,2)
+    write(tunit,*) "T233 = ",Tijm(2,3,3),Tijm_numerical(2,3,3)
+    write(tunit,*) "T333 = ",Tijm(3,3,3),Tijm_numerical(3,3,3)
+    write(tunit,*) "T113 = ",Tijm(1,1,3),Tijm_numerical(1,1,3)
+    write(tunit,*) "T131 = ",Tijm(1,3,1),Tijm_numerical(1,3,1)
+    write(tunit,*) "T223 = ",Tijm(2,2,3),Tijm_numerical(2,2,3)
+    write(tunit,*) "T232 = ",Tijm(2,3,2),Tijm_numerical(2,3,2)
+    write(tunit,*) "T123 = ",Tijm(1,2,3),Tijm_numerical(1,2,3)
+    write(tunit,*) "T132 = ",Tijm(1,3,2),Tijm_numerical(1,3,2)
+    write(tunit,*) "T231 = ",Tijm(2,3,1),Tijm_numerical(2,3,1)
+    close(tunit)
+
+    eunit = GetFreeUnit()
+    open(unit=eunit,file='output/Eijkln.out',status='replace')
+    do i=1,DIM
+        do j=1,DIM
+            do k=1,DIM
+                do l=1,DIM
+                    do n=1,DIM
+                        write(eunit,*) Eijkln(i,j,k,l,n)
+                    enddo
+                enddo
+            enddo
+        enddo
+    enddo
+    close(eunit)
 
     ! Now write the results.edn file
     runit = GetFreeUnit()
@@ -569,6 +647,7 @@ program runner
     use mod_neighborlist
     use mod_process, only : Cijkl,Cijkl_numerical,      &
                             Dijmkln,Dijmkln_numerical,  &
+                            Tijm,Tijm_numerical,Eijkln, &
                             write_results,              &
                             setup_process_KIM_access
     implicit none
@@ -614,6 +693,10 @@ program runner
 
     Cijkl   = 0._cd
     Dijmkln = 0._cd
+    Eijkln  = 0._cd
+    Tijm    = 0._cd
+
+    Tijm_numerical    = 0._cd
     Dijmkln_numerical = 0._cd
     Cijkl_numerical   = 0._cd
 
@@ -626,7 +709,6 @@ program runner
     read(*,*,err=100) CrystalStructure
     read(*,*,err=100) DependentTestname
     read(*,*,err=100) LatticeSpacing
-
 
     if (trim(CrystalStructure) .eq. 'fcc') then
       N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
@@ -853,12 +935,17 @@ program runner
 
         call numerical_check_Dijmkln(pkim,nbc)
         call numerical_check_Cijkl(pkim,nbc)
+        call numerical_check_Tijm(pkim,nbc)
     enddo
 
     Cijkl             = Cijkl/(numParticles_PrimitiveCell*AtomVol)
     Dijmkln           = Dijmkln/(numParticles_PrimitiveCell*AtomVol)
+    Eijkln            = Eijkln/(numParticles_PrimitiveCell*AtomVol)
+    Tijm              = Tijm/(numParticles_PrimitiveCell*AtomVol)
+
     Cijkl_numerical   = Cijkl_numerical/(numParticles_PrimitiveCell*AtomVol)
     Dijmkln_numerical = Dijmkln_numerical/(numParticles_PrimitiveCell*AtomVol)
+    Tijm_numerical    = Tijm_numerical/(numParticles_PrimitiveCell*AtomVol)
 
 
     call write_results
@@ -1766,6 +1853,177 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
 
 
 end subroutine numerical_check_Dijmkln
+
+subroutine numerical_check_Tijm(pkim,nbc)
+    use mod_global
+    use KIM_API_F03
+    use mod_coordinates
+    use mod_neighborlist, only : neighObject_type
+    use mod_process, only : Tijm_numerical
+    implicit none
+    
+    ! Passed variables
+    type(c_ptr),   intent(in)  :: pkim
+    integer(c_int),intent(in) :: nbc
+
+    ! Local variables
+    real(c_double), allocatable            :: coords_centered(:,:),coords_original(:,:)
+    integer(c_int)                         :: p,q,r,s,i,j,m,ier,idum
+    real(c_double)                         :: energy_plus,energy_neg,eps
+    real(c_double), dimension(DIM)         :: shift
+    real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
+
+    integer(c_int), pointer :: nParts;       type(c_ptr) :: pnParts
+    real(c_double), pointer :: energy;  type(c_ptr) :: penergy
+    real(c_double), pointer :: cutoff;        type(c_ptr) :: pcutoff
+    type(neighObject_type), pointer :: neighObject;   type(c_ptr) :: pneighObject
+
+
+    ! Unpack data from KIM object
+    !
+    call kim_api_getm_data(pkim, ier, &
+       "numberOfParticles",     pnParts,          1,   &
+       "neighObject",           pneighObject,     1,   &
+       "cutoff",                pcutoff,          1,   &
+       "energy",                penergy,          1)
+
+    if (ier.lt.KIM_STATUS_OK) then
+        idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                     "kim_api_getm_data", ier)
+        stop
+    endif
+
+    call c_f_pointer(pnParts, nParts)
+    call c_f_pointer(penergy, energy)
+    call c_f_pointer(pcutoff, cutoff)
+    call c_f_pointer(pneighObject, neighObject)
+
+    allocate(coords_centered(DIM,nParts))
+    allocate(coords_original(DIM,nParts))
+
+    coords_original = coords
+    coords_centered= coords
+    eps             = 1.e-3
+
+    shift(:) = coords_original(:,MiddlePartId)
+    do p=1,nParts
+        coords_centered(:,p) = coords_centered(:,p) - shift(:)
+    enddo
+
+
+    do q=1,18
+        energy_plus = 0._cd
+        energy_neg  = 0._cd
+
+        select case(q)
+        case(1)
+            i = 1; j = 1; m = 1
+        case(2)
+            i = 2; j = 2; m = 1
+        case(3)
+            i = 1; j = 2; m = 2
+        case(4)
+            i = 3; j = 3; m = 1
+        case(5)
+            i = 1; j = 3; m = 3
+        case(6)
+            i = 2; j = 2; m = 2
+        case(7)
+            i = 1; j = 1; m = 2
+        case(8)
+            i = 1; j = 2; m = 1
+        case(9)
+            i = 3; j = 3; m = 2
+        case(10)
+            i = 2; j = 3; m = 3
+        case(11)
+            i = 3; j = 3; m = 3
+        case(12)
+            i = 1; j = 1; m = 3
+        case(13)
+            i = 1; j = 3; m = 1
+        case(14)
+            i = 2; j = 2; m = 3
+        case(15)
+            i = 2; j = 3; m = 2
+        case(16)
+            i = 1; j = 2; m = 3
+        case(17)
+            i = 1; j = 3; m = 2
+        case(18)
+            i = 2; j = 3; m = 1
+        end select
+
+        do p=1,2
+            coords = coords_centered
+            Eijk = 0._cd
+            Cijk = 0._cd
+
+            select case(p)
+                case(1)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = eps
+                    else
+                        Eijk(i,j,m) = eps/2._cd
+                        Eijk(j,i,m) = eps/2._cd
+                    endif
+                case(2)
+                    if (i .eq. j) then
+                        Eijk(i,j,m) = -eps
+                    else
+                        Eijk(i,j,m) = -eps/2._cd
+                        Eijk(j,i,m) = -eps/2._cd
+                    endif
+            end select
+
+            call Calculate_Cijk(Eijk,Cijk)
+        
+            do r=1,nParts
+                do s=1,3
+                   coords(s,r)         = coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_centered(1,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,1,2) * coords_centered(1,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,1,3) * coords_centered(1,r) * coords_centered(3,r) +   &
+                                                       0.5d0*Cijk(s,2,1) * coords_centered(2,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,2,2) * coords_centered(2,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,2,3) * coords_centered(2,r) * coords_centered(3,r) +   &
+                                                       0.5d0*Cijk(s,3,1) * coords_centered(3,r) * coords_centered(1,r) +   &
+                                                       0.5d0*Cijk(s,3,2) * coords_centered(3,r) * coords_centered(2,r) +   &
+                                                       0.5d0*Cijk(s,3,3) * coords_centered(3,r) * coords_centered(3,r)
+                enddo
+            enddo
+
+            if (nbc.eq.0) then
+                call NEIGH_RVEC_neighborlist(.true., nParts, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            elseif (nbc.eq.2) then
+                call NEIGH_RVEC_neighborlist(.false., nParts, coords, cutoff, &
+                                                  MiddlePartId, neighObject)
+            endif
+            
+            ier = kim_api_model_compute(pkim)
+            if (ier.lt.KIM_STATUS_OK) then
+               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                           "kim_api_model_compute", ier)
+               stop
+            endif
+
+            if (p .eq. 1) then
+                energy_plus = energy_plus + energy
+            elseif (p .eq. 2) then
+                energy_neg = energy_neg + energy
+            endif
+
+        enddo
+
+        Tijm_numerical(i,j,m) = Tijm_numerical(i,j,m) + (energy_plus - energy_neg)/(2._cd*eps)
+    enddo
+
+    coords = coords_original
+
+    deallocate(coords_centered)
+
+
+end subroutine numerical_check_Tijm
 
 integer function GetFreeUnit()
     implicit none
