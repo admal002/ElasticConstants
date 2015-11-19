@@ -248,7 +248,6 @@ contains
 
     call c_f_pointer(pdx,dx,[DIM])
 
-    write(*,*) i,j
     R3 = (coords(:,i) + coords(:,j))/2._cd - coords(:,MiddlePartId)
 
     Tijm = Tijm + deidr * tensor_prod_3(dx,dx,R3)/r
@@ -657,7 +656,7 @@ program runner
     integer(c_int), parameter :: SizeOne        = 1
 
     integer(c_int)   :: N,dunit
-    real(c_double)   :: LatticeSpacing,AtomVol
+    real(c_double)   :: LatticeSpacing,AtomVol,LatticeSpacing_hcp
     character(len=20):: CrystalStructure
     character(len=2) :: Species
     integer,external :: GetFreeUnit
@@ -709,6 +708,9 @@ program runner
     read(*,*,err=100) CrystalStructure
     read(*,*,err=100) DependentTestname
     read(*,*,err=100) LatticeSpacing
+    if (trim(CrystalStructure) .eq. 'hcp') then
+        read(*,*,err=100) LatticeSpacing_hcp
+    endif
 
     if (trim(CrystalStructure) .eq. 'fcc') then
       N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
@@ -721,6 +723,10 @@ program runner
     elseif (trim(CrystalStructure) .eq. 'diamond') then
       N = 8*(nCellsPerSide)**3
       AtomVol = (LatticeSpacing**3)/8._cd
+      numParticles_PrimitiveCell = 2
+    elseif (trim(CrystalStructure) .eq. 'hcp') then
+      N = 2*(nCellsPerSide)**3
+      AtomVol = sqrt(3._cd) * (LatticeSpacing**2) * LatticeSpacing_hcp/4._cd
       numParticles_PrimitiveCell = 2
     else
       write(*,*) "Error: Crystal structure ", trim(CrystalStructure)," not supported."
@@ -853,6 +859,8 @@ program runner
                                       MiddlePartId)
     elseif (trim(CrystalStructure) .eq. 'diamond') then
         call create_diamond_configuration(LatticeSpacing, nCellsPerSide,  coords, MiddlePartId)
+    elseif (trim(CrystalStructure) .eq. 'hcp') then
+        call create_hcp_configuration(LatticeSpacing,LatticeSpacing_hcp, nCellsPerSide,  coords, MiddlePartId)
     endif
 
     ! set boxSideLengths large enough to make the cluster isolated
@@ -1463,6 +1471,69 @@ subroutine create_diamond_configuration(LatticeSpacing, nCellsPerSide, &
     return
 
 end subroutine create_diamond_configuration
+
+subroutine create_hcp_configuration(LatticeSpacing, LatticeSpacing_hcp, nCellsPerSide, &
+                                        coords, MiddlePartId)
+    use mod_global
+    use KIM_API_F03
+    implicit none
+
+    !-- Transferred variables
+    real(c_double), intent(in)  :: LatticeSpacing,LatticeSpacing_hcp
+    integer(c_int), intent(in)  :: nCellsPerSide
+    real(c_double), intent(out) :: coords(DIM,*)
+    integer(c_int), intent(out) :: MiddlePartId
+    !
+    ! cluster setup variables
+    !
+    real(c_double) FCCshifts(DIM,2)
+    real(c_double) latVec(DIM),latVec_gen(DIM,3)
+    integer(c_int) a, i, j, k, m
+
+
+    latVec_gen(:,1) = (/LatticeSpacing,        0._cd,                            0._cd/)
+    latVec_gen(:,2) = (/-LatticeSpacing/2._cd, sqrt(3._cd)*LatticeSpacing/2._cd, 0._cd/)
+    latVec_gen(:,3) = (/0._cd,                 0._cd,                            LatticeSpacing_hcp/)
+
+    ! Create a cubic FCC cluster
+    !
+    FCCshifts(1,1) = 0.0_cd
+    FCCshifts(2,1) = 0.0_cd
+    FCCshifts(3,1) = 0.0_cd
+
+    FCCshifts(:,2) = (2._cd/3._cd) * latVec_gen(:,1) + &
+                     (1._cd/3._cd) * latVec_gen(:,2) + &
+                     (1._cd/2._cd) * latVec_gen(:,3)
+
+    MiddlePartID = 1 ! Always put middle particle as #1
+    a = 2            ! leave space for middle particle as particle #1
+
+    do i=1,nCellsPerSide
+     do j=1,nCellsPerSide
+        do k=1,nCellsPerSide
+           latVec = (i-1) * latVec_gen(:,1) + &
+                    (j-1) * latVec_gen(:,2) + &
+                    (k-1) * latVec_gen(:,3) 
+           do m=1,2
+              a = a+1
+              coords(:,a) = latVec + FCCshifts(:,m)
+              if ((i.eq.nCellsPerside/2+1).and.(j.eq.nCellsPerSide/2+1) .and. &
+                   (k.eq.nCellsPerSide/2+1) ) then
+                if (m .eq. 1) then
+                     coords(:,1) = latVec + FCCshifts(:,m) ! put middle particle as #1
+                     a = a - 1
+                elseif (m .eq. 2) then
+                    coords(:,2) = latVec + FCCshifts(:,m)
+                     a = a - 1
+                endif
+              endif
+           enddo
+        enddo
+     enddo
+ enddo
+    return
+
+end subroutine create_hcp_configuration
 
 subroutine numerical_check_Cijkl(pkim,nbc)
     use mod_global
