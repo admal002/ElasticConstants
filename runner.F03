@@ -31,11 +31,12 @@
 !-------------------------------------------------------------------------------
 ! Notes:
 !
-! 1. The test works for FCC and BCC crystal structures. It can be easily
-!    generalized to any simple lattice. 
+! 1. The test works for FCC, BCC, HCP and Diamond crystal structures. It can be easily
+!    generalized to other multilattices
 ! 2. The size (nCellsPerSide) is taken to be equal to seven. This size is fixed.
-!    It is made large enough to ensure that the central atoms truely represents a
-!    bult atom. In other words, this depends on the cutoff of the model. Seven seems
+!    It is made large enough to ensure each atoms in the primitive unit
+!    cell truely represents a
+!    bulk atom. In other words, this depends on the cutoff of the model. Seven seems
 !    to be a large number for most models. 
 
 #include "KIM_API_status.h"
@@ -689,6 +690,7 @@ program runner
     real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
     integer :: numParticles_PrimitiveCell,ind
     real(c_double), allocatable :: coords_original(:,:)
+    integer(c_int) :: process_flag, process_flag_dedr, process_flag_d2edr2
 
     Cijkl   = 0._cd
     Dijmkln = 0._cd
@@ -707,10 +709,12 @@ program runner
     read(*,*,err=100) Species
     read(*,*,err=100) CrystalStructure
     read(*,*,err=100) DependentTestname
-    read(*,*,err=100) LatticeSpacing
+    !read(*,*,err=100) LatticeSpacing
     if (trim(CrystalStructure) .eq. 'hcp') then
         read(*,*,err=100) LatticeSpacing_hcp
     endif
+    !Nikhil
+    LatticeSpacing = 5.43094978468
 
     if (trim(CrystalStructure) .eq. 'fcc') then
       N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
@@ -810,8 +814,7 @@ program runner
         stop
     endif
 
-    call setup_process_KIM_access(pkim)
-
+    process_flag = 0
     ! Unpack data from KIM object
     !
     call kim_api_getm_data(pkim, ier, &
@@ -883,13 +886,15 @@ program runner
     ! The loop over the atoms of the unit cell starts here
     do ind = 1,numParticles_PrimitiveCell
 
-        ! Switch on process_dedr and process_d2edr2
-        call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
-        call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
-        if (ier.lt.KIM_STATUS_OK) then
-            idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                     "kim_api_set_compute", ier)
-            stop
+        if (process_flag .eq. 1) then
+            ! Switch on process_dedr and process_d2edr2
+            call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
+            call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
+            if (ier.lt.KIM_STATUS_OK) then
+                idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                         "kim_api_set_compute", ier)
+                stop
+            endif
         endif
 
         ! Interchange coordinates of MiddlePartId with that of the index
@@ -1580,7 +1585,7 @@ subroutine numerical_check_Cijkl(pkim,nbc)
 
     ! Initialize
     coords_old      = coords
-    eps             = 1.e-4
+    eps             = 1.e-2
 
     do u=1,3
         energy_plus = 0._cd
@@ -1756,7 +1761,7 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
 
     coords_original = coords
     coords_centered= coords
-    eps             = 1.e-3
+    eps             = 1.e-2
 
     shift(:) = coords_original(:,MiddlePartId)
     do p=1,nParts
