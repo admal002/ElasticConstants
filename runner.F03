@@ -465,9 +465,10 @@ contains
     return
     end function tensor_prod_6
 
-subroutine write_results
+subroutine write_results(CrystalStructure)
     implicit none
     ! Passed variables
+    character(len=*):: CrystalStructure
 
     ! Local variables
     integer(c_int)             :: cunit,dunit,runit,tunit,eunit,i,j,k,l,n
@@ -476,27 +477,31 @@ subroutine write_results
 
     cr = char(10)
 
-    cunit = GetFreeUnit()
-    open(unit=cunit,file='output/Cijkl.out',status='replace')
-    write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
-    write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
-    write(cunit, *) "c44 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
-    close(cunit)
+    if (trim(CrystalStructure) .eq. 'hcp') then
+        call write_results_hcp
+    else
+        cunit = GetFreeUnit()
+        open(unit=cunit,file='output/Cijkl.out',status='replace')
+        write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
+        write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
+        write(cunit, *) "c44 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
+        close(cunit)
 
-    dunit = GetFreeUnit()
-    open(unit=dunit,file='output/Dijmkln.out',status='replace')
-    write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1)
-    write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2),Dijmkln_numerical(1,1,1,1,2,2)
-    write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1),Dijmkln_numerical(1,1,1,2,2,1)
-    write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2),Dijmkln_numerical(1,1,2,1,1,2)
-    write(dunit,*) "D112121 = ",Dijmkln(1,1,2,1,2,1),Dijmkln_numerical(1,1,2,1,2,1)
-    write(dunit,*) "D112233 = ",Dijmkln(1,1,2,2,3,3),Dijmkln_numerical(1,1,2,2,3,3)
-    write(dunit,*) "D112332 = ",Dijmkln(1,1,2,3,3,2),Dijmkln_numerical(1,1,2,3,3,2)
-    write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1),Dijmkln_numerical(1,2,1,1,2,1)
-    write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
-    write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
-    write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2)
-    close(dunit)
+        dunit = GetFreeUnit()
+        open(unit=dunit,file='output/Dijmkln.out',status='replace')
+        write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1)
+        write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2),Dijmkln_numerical(1,1,1,1,2,2)
+        write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1),Dijmkln_numerical(1,1,1,2,2,1)
+        write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2),Dijmkln_numerical(1,1,2,1,1,2)
+        write(dunit,*) "D112121 = ",Dijmkln(1,1,2,1,2,1),Dijmkln_numerical(1,1,2,1,2,1)
+        write(dunit,*) "D112233 = ",Dijmkln(1,1,2,2,3,3),Dijmkln_numerical(1,1,2,2,3,3)
+        write(dunit,*) "D112332 = ",Dijmkln(1,1,2,3,3,2),Dijmkln_numerical(1,1,2,3,3,2)
+        write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1),Dijmkln_numerical(1,2,1,1,2,1)
+        write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
+        write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
+        write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2)
+        close(dunit)
+    endif
 
     tunit = GetFreeUnit()
     open(unit=tunit,file='output/Tijm.out',status='replace')
@@ -616,6 +621,54 @@ subroutine write_results
 '}'
 end subroutine write_results
 
+subroutine write_results_hcp
+    implicit none
+    ! Passed variables
+
+    ! Local variables
+    integer(c_int)             :: cunit,dunit
+    integer,external           :: GetFreeUnit
+    character(len=1)           :: cr
+
+    cr = char(10)
+
+    cunit = GetFreeUnit()
+    open(unit=cunit,file='output/Cijkl.out',status='replace')
+    write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
+    write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
+    write(cunit, *) "c13 = ",Cijkl(1,1,3,3),Cijkl_numerical(1,1,3,3)
+    write(cunit, *) "c44 = ",Cijkl(2,3,2,3),Cijkl_numerical(2,3,2,3)
+    write(cunit, *) "c66 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
+    close(cunit)
+
+    dunit = GetFreeUnit()
+    open(unit=dunit,file='output/Dijmkln.out',status='replace')
+    write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1) ! D11
+    write(dunit,*) "D222222 = ",Dijmkln(2,2,2,2,2,2),Dijmkln_numerical(2,2,2,2,2,2) ! D66
+    write(dunit,*) "D222112 = ",Dijmkln(2,2,2,1,1,2),Dijmkln_numerical(2,2,2,1,1,2) ! D67
+    write(dunit,*) "D222121 = ",Dijmkln(2,2,2,1,2,1),Dijmkln_numerical(2,2,2,1,2,1) ! D68
+    write(dunit,*) "D222332 = ",Dijmkln(2,2,2,3,3,2),Dijmkln_numerical(2,2,2,3,3,2) ! D69
+    write(dunit,*) "D222233 = ",Dijmkln(2,2,2,2,3,3),Dijmkln_numerical(2,2,2,2,3,3) ! D6(10)
+    write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2),Dijmkln_numerical(1,1,2,1,1,2) ! D77
+    write(dunit,*) "D121332 = ",Dijmkln(1,2,1,3,3,2),Dijmkln_numerical(1,2,1,3,3,2) ! D89
+    write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3) ! D8(10)
+    write(dunit,*) "D332332 = ",Dijmkln(3,3,2,3,3,2),Dijmkln_numerical(3,3,2,3,3,2) ! D99
+    write(dunit,*) "D332233 = ",Dijmkln(3,3,2,2,3,3),Dijmkln_numerical(3,3,2,2,3,3) ! D9(10)
+    write(dunit,*) "D233233 = ",Dijmkln(2,3,3,2,3,3),Dijmkln_numerical(2,3,3,2,3,3) ! D(10)(10)
+    write(dunit,*) "D333333 = ",Dijmkln(3,3,3,3,3,3),Dijmkln_numerical(3,3,3,3,3,3) ! D(11)(11)
+    write(dunit,*) "D333113 = ",Dijmkln(3,3,3,1,1,3),Dijmkln_numerical(3,3,3,1,1,3) ! D(11)(12)
+    write(dunit,*) "D333131 = ",Dijmkln(3,3,3,1,3,1),Dijmkln_numerical(3,3,3,1,3,1) ! D(11)(13)
+    write(dunit,*) "D113113 = ",Dijmkln(1,1,3,1,1,3),Dijmkln_numerical(1,1,3,1,1,3) ! D(12)(12)
+    write(dunit,*) "D113131 = ",Dijmkln(1,1,3,1,3,1),Dijmkln_numerical(1,1,3,1,3,1) ! D(12)(13)
+    write(dunit,*) "D131131 = ",Dijmkln(1,3,1,1,3,1),Dijmkln_numerical(1,3,1,1,3,1) ! D(13)(13)
+    write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3) ! D(16)(16)
+    write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2) ! D(16)(17)
+    write(dunit,*) "D132132 = ",Dijmkln(1,3,2,1,3,2),Dijmkln_numerical(1,3,2,1,3,2) ! D(17)(17)
+    write(dunit,*) "D132231 = ",Dijmkln(1,3,2,2,3,1),Dijmkln_numerical(1,3,2,2,3,1) ! D(17)(18)
+    close(dunit)
+
+end subroutine write_results_hcp
+
 end module mod_process
 
 !*******************************************************************************
@@ -690,7 +743,7 @@ program runner
     real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
     integer :: numParticles_PrimitiveCell,ind
     real(c_double), allocatable :: coords_original(:,:)
-    integer(c_int) :: process_flag, process_flag_dedr, process_flag_d2edr2
+    integer(c_int) :: process_flag
 
     Cijkl   = 0._cd
     Dijmkln = 0._cd
@@ -709,12 +762,17 @@ program runner
     read(*,*,err=100) Species
     read(*,*,err=100) CrystalStructure
     read(*,*,err=100) DependentTestname
-    !read(*,*,err=100) LatticeSpacing
+    read(*,*,err=100) LatticeSpacing
     if (trim(CrystalStructure) .eq. 'hcp') then
         read(*,*,err=100) LatticeSpacing_hcp
     endif
-    !Nikhil
-    LatticeSpacing = 5.43094978468
+    process_flag = 1
+
+    !Nikhil:
+    !LatticeSpacing = 5.43094978468 ! no query for diamond Si Tersoff
+    ! No query for Mg MEAM
+    !LatticeSpacing = 3.1842139923446866; LatticeSpacing_hcp = 5.184423256663976 ! for hcp Mg
+    !process_flag = 0
 
     if (trim(CrystalStructure) .eq. 'fcc') then
       N = 4*(nCellsPerSide)**3 + 6*(nCellsPerSide)**2 + 3*(nCellsPerSide) + 1
@@ -814,7 +872,7 @@ program runner
         stop
     endif
 
-    process_flag = 0
+    if (process_flag .eq. 1) call setup_process_KIM_access(pkim)
     ! Unpack data from KIM object
     !
     call kim_api_getm_data(pkim, ier, &
@@ -935,19 +993,21 @@ program runner
         !
 
         ! Switch off process_dedr and process_d2edr2
-        call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_FALSE,ier)
-        call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_FALSE,ier)
-        if (ier.lt.KIM_STATUS_OK) then
-            idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                     "kim_api_set_compute", ier)
-            stop
+        if (process_flag .eq. 1) then
+            call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_FALSE,ier)
+            call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_FALSE,ier)
+            if (ier.lt.KIM_STATUS_OK) then
+                idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                         "kim_api_set_compute", ier)
+                stop
+            endif
         endif
 
         ! Perform the following non-uniform deformation which corresponts to zero strain
         ! and infinitesimal first strain gradient
 
-        call numerical_check_Dijmkln(pkim,nbc)
-        call numerical_check_Cijkl(pkim,nbc)
+        call numerical_check_Dijmkln(pkim,nbc,CrystalStructure)
+        call numerical_check_Cijkl(pkim,nbc,CrystalStructure)
         call numerical_check_Tijm(pkim,nbc)
     enddo
 
@@ -961,7 +1021,7 @@ program runner
     Tijm_numerical    = Tijm_numerical/(numParticles_PrimitiveCell*AtomVol)
 
 
-    call write_results
+    call write_results(CrystalStructure)
 
     ! Don't forget to free and/or deallocate
     deallocate(neighObject%neighborList)
@@ -1540,7 +1600,7 @@ subroutine create_hcp_configuration(LatticeSpacing, LatticeSpacing_hcp, nCellsPe
 
 end subroutine create_hcp_configuration
 
-subroutine numerical_check_Cijkl(pkim,nbc)
+subroutine numerical_check_Cijkl(pkim,nbc,CrystalStructure)
     use mod_global
     use mod_coordinates
     use mod_process, only : Cijkl_numerical
@@ -1550,12 +1610,13 @@ subroutine numerical_check_Cijkl(pkim,nbc)
     ! Passed variables
     type(c_ptr),   intent(in) :: pkim
     integer(c_int),intent(in) :: nbc
+    character(len=*), intent(in) :: CrystalStructure
 
     ! Local variables
     real(c_double), allocatable :: coords_old(:,:) 
     real(c_double)              :: energy_plus,energy_neg, &
                                    eps,gradU(DIM,DIM)
-    integer(c_int) :: partIndex,xc,yc,p,q,r,s,t,u,ier,idum
+    integer(c_int) :: partIndex,xc,yc,p,q,r,s,t,u,ier,idum,numIndConsts
 
     integer(c_int), pointer :: N;             type(c_ptr) :: pnParts
     real(c_double), pointer :: energy;        type(c_ptr) :: penergy
@@ -1585,21 +1646,50 @@ subroutine numerical_check_Cijkl(pkim,nbc)
 
     ! Initialize
     coords_old      = coords
-    eps             = 1.e-2
+    eps             = 5.e-3
 
-    do u=1,3
+
+    numIndConsts = 0
+    if (trim(CrystalStructure) .eq. 'hcp') then
+        numIndConsts = 5
+    elseif (trim(CrystalStructure) .eq. 'fcc' .or.      &
+            trim(CrystalStructure) .eq. 'bcc' .or.      &
+            trim(CrystalStructure) .eq. 'diamond') then
+        numIndConsts = 3
+    else 
+    endif
+
+    do u=1,numIndConsts
+
         energy_plus = 0._cd
         energy_neg  = 0._cd
         coords = coords_old
 
-        select case(u)
-        case(1)
-            p=1; q=1; r=1; s=1
-        case(2)
-            p=1; q=2; r=1; s=2
-        case(3)
-            p=1; q=1; r=2; s=2
-        end select
+        if (trim(CrystalStructure) .eq. 'fcc' .or.  &
+            trim(CrystalStructure) .eq. 'bcc' .or.  &
+            trim(CrystalStructure) .eq. 'diamond') then
+            select case(u)
+            case(1)
+                p=1; q=1; r=1; s=1
+            case(2)
+                p=1; q=2; r=1; s=2
+            case(3)
+                p=1; q=1; r=2; s=2
+            end select
+        elseif (trim(CrystalStructure) .eq. 'hcp') then
+            select case(u)
+            case(1)
+                p=1; q=1; r=1; s=1
+            case(2)
+                p=1; q=1; r=2; s=2
+            case(3)
+                p=1; q=1; r=3; s=3
+            case(4)
+                p=2; q=3; r=2; s=3
+            case(5)
+                p=1; q=2; r=1; s=2
+            end select
+        endif
 
         do t=1,4
             coords = coords_old
@@ -1712,7 +1802,7 @@ deallocate(coords_old)
 
 end subroutine numerical_check_Cijkl
 
-subroutine numerical_check_Dijmkln(pkim,nbc)
+subroutine numerical_check_Dijmkln(pkim,nbc,CrystalStructure)
     use mod_global
     use KIM_API_F03
     use mod_coordinates
@@ -1723,10 +1813,11 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
     ! Passed variables
     type(c_ptr),   intent(in)  :: pkim
     integer(c_int),intent(in) :: nbc
+    character(len=*), intent(in) :: CrystalStructure
 
     ! Local variables
     real(c_double), allocatable            :: coords_centered(:,:),coords_original(:,:)
-    integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,ier,idum
+    integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,ier,idum,numIndConsts
     real(c_double)                         :: energy_plus,energy_neg,eps
     real(c_double), dimension(DIM)         :: shift
     real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
@@ -1761,53 +1852,135 @@ subroutine numerical_check_Dijmkln(pkim,nbc)
 
     coords_original = coords
     coords_centered= coords
-    eps             = 1.e-2
+    eps             = 5.e-3
 
     shift(:) = coords_original(:,MiddlePartId)
     do p=1,nParts
         coords_centered(:,p) = coords_centered(:,p) - shift(:)
     enddo
 
+    numIndConsts = 0
+    if (trim(CrystalStructure) .eq. 'hcp') then
+        numIndConsts = 22
+    elseif (trim(CrystalStructure) .eq. 'fcc' .or.  &
+            trim(CrystalStructure) .eq. 'bcc' .or.  &
+            trim(CrystalStructure) .eq. 'diamond') then
+        numIndConsts = 11
+    else 
+    endif
 
-    do q=1,11
+    do q=1,numIndConsts
         energy_plus = 0._cd
         energy_neg  = 0._cd
 
-        select case(q)
-        case(1)
-            i = 1; j = 1; m = 1
-            k = 1; l = 1; n = 1
-        case(2)
-            i = 1; j = 1; m = 1
-            k = 1; l = 2; n = 2
-        case(3)
-            i = 1; j = 1; m = 1
-            k = 2; l = 2; n = 1
-        case(4)
-            i = 1; j = 1; m = 2
-            k = 1; l = 1; n = 2
-        case(5)
-            i = 1; j = 1; m = 2
-            k = 1; l = 2; n = 1
-        case(6)
-            i = 1; j = 1; m = 2
-            k = 2; l = 3; n = 3
-        case(7)
-            i = 1; j = 1; m = 2
-            k = 3; l = 3; n = 2
-        case(8)
-            i = 1; j = 2; m = 1
-            k = 1; l = 2; n = 1
-        case(9)
-            i = 1; j = 2; m = 1
-            k = 2; l = 3; n = 3
-        case(10)
-            i = 1; j = 2; m = 3
-            k = 1; l = 2; n = 3
-        case(11)
-            i = 1; j = 2; m = 3
-            k = 1; l = 3; n = 2
-        end select
+        if (trim(CrystalStructure) .eq. 'fcc' .or.  &
+            trim(CrystalStructure) .eq. 'bcc' .or.  &
+            trim(CrystalStructure) .eq. 'diamond') then
+            select case(q)
+            case(1)
+                i = 1; j = 1; m = 1
+                k = 1; l = 1; n = 1
+            case(2)
+                i = 1; j = 1; m = 1
+                k = 1; l = 2; n = 2
+            case(3)
+                i = 1; j = 1; m = 1
+                k = 2; l = 2; n = 1
+            case(4)
+                i = 1; j = 1; m = 2
+                k = 1; l = 1; n = 2
+            case(5)
+                i = 1; j = 1; m = 2
+                k = 1; l = 2; n = 1
+            case(6)
+                i = 1; j = 1; m = 2
+                k = 2; l = 3; n = 3
+            case(7)
+                i = 1; j = 1; m = 2
+                k = 3; l = 3; n = 2
+            case(8)
+                i = 1; j = 2; m = 1
+                k = 1; l = 2; n = 1
+            case(9)
+                i = 1; j = 2; m = 1
+                k = 2; l = 3; n = 3
+            case(10)
+                i = 1; j = 2; m = 3
+                k = 1; l = 2; n = 3
+            case(11)
+                i = 1; j = 2; m = 3
+                k = 1; l = 3; n = 2
+            end select
+        elseif (trim(CrystalStructure) .eq. 'hcp') then
+            select case(q)
+            case(1)
+                i = 1; j = 1; m = 1
+                k = 1; l = 1; n = 1
+            case(2)
+                i = 2; j = 2; m = 2
+                k = 2; l = 2; n = 2
+            case(3)
+                i = 2; j = 2; m = 2
+                k = 1; l = 1; n = 2
+            case(4)
+                i = 2; j = 2; m = 2
+                k = 1; l = 2; n = 1
+            case(5)
+                i = 2; j = 2; m = 2
+                k = 3; l = 3; n = 2
+            case(6)
+                i = 2; j = 2; m = 2
+                k = 2; l = 3; n = 3
+            case(7)
+                i = 1; j = 1; m = 2
+                k = 1; l = 1; n = 2
+            case(8)
+                i = 1; j = 2; m = 1
+                k = 3; l = 3; n = 2
+            case(9)
+                i = 1; j = 2; m = 1
+                k = 2; l = 3; n = 3
+            case(10)
+                i = 3; j = 3; m = 2
+                k = 3; l = 3; n = 2
+            case(11)
+                i = 3; j = 3; m = 2
+                k = 2; l = 3; n = 3
+            case(12)
+                i = 2; j = 3; m = 3
+                k = 2; l = 3; n = 3
+            case(13)
+                i = 3; j = 3; m = 3
+                k = 3; l = 3; n = 3
+            case(14)
+                i = 3; j = 3; m = 3
+                k = 1; l = 1; n = 3
+            case(15)
+                i = 3; j = 3; m = 3
+                k = 1; l = 3; n = 1
+            case(16)
+                i = 1; j = 1; m = 3
+                k = 1; l = 1; n = 3
+            case(17)
+                i = 1; j = 1; m = 3
+                k = 1; l = 3; n = 1
+            case(18)
+                i = 1; j = 3; m = 1
+                k = 1; l = 3; n = 1
+            case(19)
+                i = 1; j = 2; m = 3
+                k = 1; l = 2; n = 3
+            case(20)
+                i = 1; j = 2; m = 3
+                k = 1; l = 3; n = 2
+            case(21)
+                i = 1; j = 3; m = 2
+                k = 1; l = 3; n = 2
+            case(22)
+                i = 1; j = 3; m = 2
+                k = 2; l = 3; n = 1
+            end select
+        endif
 
         do p=1,4
             coords = coords_centered
@@ -1979,7 +2152,7 @@ subroutine numerical_check_Tijm(pkim,nbc)
 
     coords_original = coords
     coords_centered= coords
-    eps             = 1.e-3
+    eps             = 5.e-3
 
     shift(:) = coords_original(:,MiddlePartId)
     do p=1,nParts
