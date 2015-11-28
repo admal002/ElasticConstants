@@ -23,7 +23,7 @@
 # All rights reserved.
 #
 # Contributors:
-#    Ryan S. Elliott
+#    Nikhil Chandra Admal
 #
 
 #
@@ -54,18 +54,35 @@ LDLIBS       = $(shell $(KIM_CONFIG_HELPER) --ldlibs)
 OBJONLYFLAG  = $(shell $(KIM_CONFIG_HELPER) --objonlyflag)
 OUTPUTINFLAG = $(shell $(KIM_CONFIG_HELPER) --outputinflag)
 
+SRC = mod_global.F03  \
+	  mod_lattice.F03 \
+	  mod_crystal.F03 \
+	  mod_atomistic.F03 \
+	  mod_kim.F03	  \
+	  mod_equilibrium.F03 \
+	  main.F03
+
+FOBJ = mod_global.o mod_atomistic.o mod_lattice.o mod_crystal.o mod_kim.o mod_equilibrium.o main.o
+
+main.o : main.F03 mod_lattice.o mod_crystal.o mod_equilibrium.o mod_global.o
+mod_global.o : mod_global.F03
+mod_lattice.o : mod_lattice.F03 mod_global.o
+mod_crystal.o : mod_crystal.F03 mod_lattice.o mod_global.o
+mod_atomistic.o : mod_atomistic.F03  mod_global.o
+mod_kim.o : mod_kim.F03 mod_atomistic.o mod_global.o
+mod_equilibrium.o : mod_equilibrium.F03 mod_kim.o mod_crystal.o mod_atomistic.o mod_global.o
 
 .PHONY: all clean
 
-TEST_NAME := runner
+TEST_NAME := main
 
 all: $(TEST_NAME)
 
-$(TEST_NAME).o: $(TEST_NAME).F03 Makefile 
-	$(FC) $(INCLUDES) $(FFLAGS) $(OBJONLYFLAG) $<
-
-$(TEST_NAME): $(TEST_NAME).o
+$(TEST_NAME): $(FOBJ)
 	$(LD) $(LDFLAGS) $< $(LDLIBS) $(OUTPUTINFLAG) $@
 
+%.o:%.F03
+	$(FC) $(INCLUDES) $(FFLAGS) $(OBJONLYFLAG) $<
+
 clean:
-	rm -f $(TEST_NAME) $(TEST_NAME).o kim.log *.mod
+	rm -f $(TEST_NAME) *.o kim.log *.mod
