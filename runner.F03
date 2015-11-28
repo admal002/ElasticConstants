@@ -53,7 +53,6 @@ module mod_global
     integer(c_int), parameter :: DIM=3
     integer(c_int), parameter :: cd = c_double ! used for literal constants
 end module mod_global
-
 !-------------------------------------------------------------------------------
 ! module mod_coordinates:
 !     Contains coordinates and the middle particle ID of the sysetem
@@ -471,7 +470,7 @@ subroutine write_results(CrystalStructure)
     character(len=*):: CrystalStructure
 
     ! Local variables
-    integer(c_int)             :: cunit,dunit,runit,tunit,eunit,i,j,k,l,n
+    integer(c_int)             :: cunit,dunit,runit,tunit,eunit,i,j,m,k,l,n
     integer,external           :: GetFreeUnit
     character(len=1)           :: cr
 
@@ -482,24 +481,32 @@ subroutine write_results(CrystalStructure)
     else
         cunit = GetFreeUnit()
         open(unit=cunit,file='output/Cijkl.out',status='replace')
-        write(cunit, *) "c11 = ",Cijkl(1,1,1,1),Cijkl_numerical(1,1,1,1)
-        write(cunit, *) "c12 = ",Cijkl(1,1,2,2),Cijkl_numerical(1,1,2,2)
-        write(cunit, *) "c44 = ",Cijkl(1,2,1,2),Cijkl_numerical(1,2,1,2)
+        do i=1,DIM
+            do j=1,DIM
+                do k=1,DIM
+                    do l=1,DIM
+                        write(cunit,*) i,j,k,l,Cijkl(i,j,k,l)
+                    enddo
+                enddo
+            enddo
+        enddo
         close(cunit)
 
         dunit = GetFreeUnit()
         open(unit=dunit,file='output/Dijmkln.out',status='replace')
-        write(dunit,*) "D111111 = ",Dijmkln(1,1,1,1,1,1),Dijmkln_numerical(1,1,1,1,1,1)
-        write(dunit,*) "D111122 = ",Dijmkln(1,1,1,1,2,2),Dijmkln_numerical(1,1,1,1,2,2)
-        write(dunit,*) "D111221 = ",Dijmkln(1,1,1,2,2,1),Dijmkln_numerical(1,1,1,2,2,1)
-        write(dunit,*) "D112112 = ",Dijmkln(1,1,2,1,1,2),Dijmkln_numerical(1,1,2,1,1,2)
-        write(dunit,*) "D112121 = ",Dijmkln(1,1,2,1,2,1),Dijmkln_numerical(1,1,2,1,2,1)
-        write(dunit,*) "D112233 = ",Dijmkln(1,1,2,2,3,3),Dijmkln_numerical(1,1,2,2,3,3)
-        write(dunit,*) "D112332 = ",Dijmkln(1,1,2,3,3,2),Dijmkln_numerical(1,1,2,3,3,2)
-        write(dunit,*) "D121121 = ",Dijmkln(1,2,1,1,2,1),Dijmkln_numerical(1,2,1,1,2,1)
-        write(dunit,*) "D121233 = ",Dijmkln(1,2,1,2,3,3),Dijmkln_numerical(1,2,1,2,3,3)
-        write(dunit,*) "D123123 = ",Dijmkln(1,2,3,1,2,3),Dijmkln_numerical(1,2,3,1,2,3)
-        write(dunit,*) "D123132 = ",Dijmkln(1,2,3,1,3,2),Dijmkln_numerical(1,2,3,1,3,2)
+        do i=1,DIM
+            do j=1,DIM
+                do m=1,DIM
+                    do k=1,DIM
+                        do l=1,DIM
+                            do n=1,DIM
+                                write(dunit,*) i,j,m,k,l,n,Dijmkln(i,j,m,k,l,n)
+                            enddo
+                        enddo
+                    enddo
+                enddo
+            enddo
+        enddo
         close(dunit)
     endif
 
@@ -938,6 +945,12 @@ program runner
     print '("Using NBC                : ",A)', trim(NBC_Method)
 
     allocate(coords_original(DIM,N))
+
+    ! Rotate the crystal
+
+    call rotate(coords,N)
+
+
     coords_original = coords
 
 
@@ -1051,6 +1064,24 @@ program runner
      stop
 
 end program runner
+
+subroutine rotate(coords,np)
+    use mod_global
+    implicit none
+    integer(c_int),intent(in) :: np
+    real(c_double) :: coords(DIM,np),coords_old(DIM,np)
+    real(c_double),parameter :: R(DIM,DIM) = reshape( (/1._cd/sqrt(3._cd),-1._cd/sqrt(2._cd),-1._cd/sqrt(6._cd), &
+                                                        1._cd/sqrt(3._cd),1._cd/sqrt(2._cd) ,-1._cd/sqrt(6._cd), &
+                                                        1._cd/sqrt(3._cd),0._cd,2._cd/sqrt(6._cd)/),(/3,3/) )
+
+
+    integer i
+    coords_old = coords
+    do i=1,np
+        coords(:,i) = matmul(R,coords_old(:,i))
+    enddo
+    return
+end subroutine rotate
 
 !-------------------------------------------------------------------------------
 !
