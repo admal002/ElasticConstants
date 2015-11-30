@@ -5,7 +5,8 @@ module mod_crystal
     type Crystal
         type(Lattice)    :: LatticeType
         integer          :: numSpecies
-        character(len=5),allocatable :: basisAtomsSpecies(:)
+        character(len=2),allocatable :: basisAtomsSpecies(:)
+        integer(c_int),allocatable   :: basisAtomsSpeciesCode(:)
         real(c_double),allocatable   :: basisAtomsCoords(:,:)
     end type Crystal
 
@@ -18,6 +19,7 @@ module mod_crystal
             integer, intent(in)         :: numBasisAtoms
 
             allocate(crystalType%basisAtomsSpecies(numBasisAtoms))
+            allocate(crystalType%basisAtomsSpeciesCode(numBasisAtoms))
             allocate(crystalType%basisAtomsCoords(DIM,numBasisAtoms))
 
         end subroutine allocateCrystal
@@ -44,12 +46,12 @@ module mod_crystal
             deallocate(crystalType%basisAtomsCoords)
         end subroutine destroyCrystal
 
-        subroutine constructGlobalCrystal(numCellsPerSide,cT,coords,species)
+        subroutine constructGlobalCrystal(numCellsPerSide,cT,coords,speciesCode)
             implicit none
             integer, intent(in)         :: numCellsPerSide
             type(Crystal), intent(in)   :: cT
             real(c_double), intent(out) :: coords(DIM,*)
-            character(len=2)            :: species(*)
+            integer(c_int)              :: speciesCode(*)
 
             ! Local variables
             integer(c_int) :: i,j,k,m,a
@@ -57,6 +59,7 @@ module mod_crystal
 
             ! make sure that crystalType is ready before proceeding
             ! Nikhil
+            a = 1
             do i=1,numCellsPerSide
                 do j=1,numCellsPerSide
                     do k=1,numCellsPerSide
@@ -66,9 +69,11 @@ module mod_crystal
                         do m=1,size(cT%basisAtomsCoords,2)
                             a = a+1
                             coords(:,a) = latVec + cT%basisAtomsCoords(:,m)
+                            speciesCode(a) = cT%basisAtomsSpeciesCode(m)
                             if ((i.eq.numCellsPerside/2+1).and.(j.eq.numCellsPerSide/2+1) .and. &
                                 (k.eq.numCellsPerSide/2+1) ) then
                                 coords(:,m) = latVec + cT%basisAtomsCoords(:,m) ! put middle particle as #1
+                                speciesCode(m) = cT%basisAtomsSpeciesCode(m)
                                 a = a - 1
                             endif
                        enddo

@@ -37,7 +37,6 @@ module mod_kim
             return
         end function getCutoff
 
-
         subroutine setup_kim(pkim,testname,modelname,nbc)
             implicit none
             ! Passed variables
@@ -83,7 +82,6 @@ module mod_kim
                                          "Unknown NBC method", ier)
                 stop
             endif
-
         end subroutine setup_kim
 
         subroutine allocate_kim(pkim,numParticles,numSpecies)
@@ -124,20 +122,27 @@ module mod_kim
             type(Atomistic),pointer :: aS
             
             ! Local variables
-            integer(c_int) :: pbcFlag, halfFlag
+            integer(c_int) :: pbcFlag, halfFlag,sizecoor
 
             pbcFlag = TRUEFALSE((aS%nbc.eq.4).or.(aS%nbc.eq.5))
             halfFlag = TRUEFALSE((aS%nbc.eq.0).or.(aS%nbc.eq.1).or.(aS%nbc.eq.4))
 
+            sizecoor = DIM*aS%numParticles
             call kim_api_setm_data(pkim, ier, &
-            "numberOfParticles",           SizeOne, c_loc(aS%numParticles),   1,                 &
+            "numberOfParticles",           SizeOne, c_loc(aS%numParticles),   1,&
             "numberContributingParticles", SizeOne, c_loc(aS%numContributingParticles), halfFlag,&
-            "numberOfSpecies",             SizeOne, c_loc(aS%numSpecies),     1,                 &
-            "particleSpecies",     aS%numParticles, c_loc(aS%particleSpecies),1,                 &
-            "coordinates",     DIM*aS%numParticles, c_loc(aS%coords),         1,                 &
-            "cutoff",                      SizeOne, c_loc(aS%cutoff),         1,                 &
+            "numberOfSpecies",             SizeOne, c_loc(aS%numSpecies),     1,&
+            "particleSpecies",     aS%numParticles, c_loc(aS%particleSpecies),1)
+            if (ier.lt.KIM_STATUS_OK) then
+             idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                         "kim_api_setm_data", ier)
+             stop
+            endif
+            call kim_api_setm_data(pkim, ier, &
+            "coordinates",  DIM*aS%numParticles   , c_loc(aS%coords),         1,                 &
+            "cutoff",                      SizeOne, c_loc(aS%cutoff), 1,&
             "boxSideLengths",              SizeOne, c_loc(aS%boxSideLengths), pbcFlag,           &
-            "energy",                      SizeONe, c_loc(aS%energy),         1)                              
+            "energy",                      SizeONe, c_loc(aS%energy),         1)
 
             if (ier.lt.KIM_STATUS_OK) then
              idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
@@ -374,6 +379,33 @@ module mod_kim
 '}'
         end subroutine write_results_kim
 
+            function getSpeciesCode(pkim,species)
+            implicit none
+            type(c_ptr),     intent(in) :: pkim
+            character(len=2),intent(in) :: species
+            integer(c_int)              :: getSpeciesCode
+
+            getSpeciesCode = kim_api_get_species_code(pkim, species, ier)
+            if (ier.lt.KIM_STATUS_OK) then
+                idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                         "kim_api_get_species_code", ier)
+                stop
+            endif
+            return
+            end function getSpeciesCode
+
 end module mod_kim
+
+integer function GetFreeUnit()
+    implicit none
+    logical InUse
+
+    do GetFreeUnit=7,98
+        inquire(unit=GetFreeUnit,opened=InUse)
+        if (.not. InUse) return
+    enddo
+    write(*,*) "Could not obtain a free unit handle in function GetFreeUnit"
+    stop
+end function GetFreeUnit
 
 

@@ -1,4 +1,4 @@
-module mod_fsge
+module mod_Fsge
     use mod_global
     implicit none
 
@@ -8,7 +8,7 @@ module mod_fsge
                           Tijm(DIM,DIM,DIM),                &
                           Eijkln(DIM,DIM,DIM,DIM,DIM)
         integer(c_int), allocatable :: IndComponents(:,:)
-    end type fsge
+    end type Fsge
 
     contains
         subroutine contructCubicFsgeMaterial(fsgeType)

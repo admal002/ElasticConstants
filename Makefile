@@ -74,12 +74,13 @@ mod_equilibrium.o : mod_equilibrium.F03 mod_kim.o mod_crystal.o mod_atomistic.o 
 
 .PHONY: all clean
 
-TEST_NAME := main
+TEST_NAME := runner
 
 all: $(TEST_NAME)
 
 $(TEST_NAME): $(FOBJ)
-	$(LD) $(LDFLAGS) $< $(LDLIBS) $(OUTPUTINFLAG) $@
+	$(LD) $(LDFLAGS) $(FOBJ) $(LDLIBS) $(OUTPUTINFLAG) $@
+	rm -f *.o kim.log *.mod
 
 %.o:%.F03
 	$(FC) $(INCLUDES) $(FFLAGS) $(OBJONLYFLAG) $<

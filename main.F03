@@ -3,10 +3,13 @@
 program main
     use mod_global
     use mod_crystal
-    use mod_lattice,     only : constructFCCLattice,constructBCCLattice,constructHCPLattice
+    use mod_lattice,     only : constructFCCLattice,constructBCCLattice,    &
+                                constructHCPLattice
     use mod_equilibrium, only : equilibriumCrystal
     use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic
-    use mod_kim,         only : setup_kim, allocate_kim, initialize_kim, getCutoff, destroy_kim
+    use mod_kim,         only : setup_kim, allocate_kim, initialize_kim, getCutoff, &
+                                destroy_kim, write_results_kim, broadcastAtomistic_kim,&
+                                getSpeciesCode
     use KIM_API_F03
     implicit none
 
@@ -23,7 +26,8 @@ program main
     character(len=2) :: species
 
     ! Atomistic system related variables
-    type(Atomistic),pointer     :: atomisticSystem
+    type(Atomistic),target      :: atomisticSystem
+    type(Atomistic),pointer     :: patomisticSystem
     real(c_double)              :: rcutoff
     real(c_double), allocatable :: coords(:,:)
     integer(c_int)              :: numParticles,nbc
@@ -63,6 +67,8 @@ program main
     ! Now define the initial crystal using a lattice spacing of rcutoff/2
     crystalType%numSpecies = numSpecies
     crystalType%basisAtomsSpecies(:) = species
+    crystalType%basisAtomsSpeciesCode(:) = getSpeciesCode(pkim,species)
+
     select case(trim(crystalStructure))
     case('fcc')
         crystalType%LatticeType = constructFCCLattice(rcutoff/2._cd)
@@ -87,10 +93,11 @@ program main
     ! Now prepare the atomistic system using the relaxed crystal
 
     ! allocate memory
-    atomisticSystem = constructAtomistic(numParticles,nbc)
+    call constructAtomistic(atomisticSystem,numParticles,nbc)
 
     ! Broadcast the atomistic system to the kim api
-    call broadcastAtomistic_kim(pkim,atomisticSystem)
+    patomisticSystem => atomisticSystem
+    call broadcastAtomistic_kim(pkim,patomisticSystem)
 
 
     ! Fill in the coordinates using the relaxed crystal

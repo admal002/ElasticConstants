@@ -2,7 +2,7 @@
 #define THIS_FILE_NAME __FILE__
 module mod_equilibrium
     use mod_global
-    use mod_crystal, only : Crystal
+    use mod_crystal, only : Crystal,constructGlobalCrystal
     use mod_atomistic
     use mod_lattice, only : constructFCCLattice, constructBCCLattice, constructHCPLattice
     use mod_kim
@@ -20,7 +20,8 @@ module mod_equilibrium
 
             ! Local variables
             type(c_ptr)    :: pkim
-            type(Atomistic),pointer :: atomisticSystem
+            type(Atomistic),target :: atomisticSystem
+            type(Atomistic),pointer :: patomisticSystem
             integer(c_int) :: nbc,numBasisAtoms,numParticles
             integer(c_int), parameter :: numCellsPerSide  = 8
             real(c_double) :: latticeSpacing, latticeSpacing_z
@@ -42,11 +43,11 @@ module mod_equilibrium
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Now prepare the atomistic system
 
-            atomisticSystem = constructAtomistic(numParticles,nbc)
+            call constructAtomistic(atomisticSystem,numParticles,nbc)
 
             ! Broadcast the atomistic system to the kim api
-            call broadcastAtomistic_kim(pkim,atomisticSystem)
-
+            patomisticSystem => atomisticSystem
+            call broadcastAtomistic_kim(pkim,patomisticSystem)
 
             ! Fill in the coordinates using the relaxed crystal
             call constructGlobalCrystal(numCellsPerSide,cT,atomisticSystem%coords,atomisticSystem%particleSpecies)
@@ -57,6 +58,8 @@ module mod_equilibrium
             atomisticSystem%cutoff = getCutoff(pkim)
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
+
+            call subroutine amoeba(p,y,mp,np,ndim,ftol,funk,iter)
 
             ! start loop here
                 call constructGlobalCrystal(numCellsPerSide,                &
@@ -73,6 +76,7 @@ module mod_equilibrium
                     stop
                 endif
 
+                stop
                 ! If converged, exit the loop
                 ! Update the crystal
                 select case(trim(crystalStructure))

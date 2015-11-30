@@ -14,31 +14,30 @@ module mod_atomistic
         real(c_double),allocatable   :: coords(:,:)
         integer(c_int)               :: numParticles,numContributingParticles,nbc,numSpecies
         type(neighObject_type)       :: neighObject
-        character(len=2),allocatable :: particleSpecies(:)
+        integer(c_int),allocatable   :: particleSpecies(:)
         real(c_double)               :: boxSideLengths,cutoff,energy
     end type Atomistic
 
     contains
 
-        function constructAtomistic(numParticles,nbc)
+        subroutine constructAtomistic(pAS,numParticles,nbc)
             implicit none
 
             integer(c_int), intent(in) :: numParticles,nbc
-            type(Atomistic), pointer   :: constructAtomistic
+            type(Atomistic)            :: pAS
 
-            allocate(constructAtomistic)
-            constructAtomistic%numParticles = numParticles
+            pAS%numParticles = numParticles
 
             ! Allocate memory to atomistic system
-            allocate(constructAtomistic%coords(DIM,numParticles))
-            allocate(constructAtomistic%particleSpecies(numParticles))
+            allocate(pAS%coords(DIM,numParticles))
+            allocate(pAS%particleSpecies(numParticles))
 
-            allocate(constructAtomistic%neighObject%neighborList(numParticles+1, numParticles))
+            allocate(pAS%neighObject%neighborList(numParticles+1, numParticles))
             if (nbc.eq.0 .or. nbc.eq.2) then
-                allocate(constructAtomistic%neighObject%RijList(DIM,numParticles+1, numParticles))
+                allocate(pAS%neighObject%RijList(DIM,numParticles+1, numParticles))
             endif
 
-        end function constructAtomistic
+        end subroutine constructAtomistic
 
         subroutine constructNeighList(aS)
             implicit none
