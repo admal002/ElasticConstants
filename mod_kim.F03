@@ -166,8 +166,8 @@ module mod_kim
                 stop
             endif
 
-            call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
-            call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
+            !call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
+            !call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
             ! Allocate and store pointers to process_dedr and process_d2edr2 subroutines
             ier = kim_api_set_method(pkim, "process_dEdr", SizeOne, c_funloc(process_dedr))
             if (ier.lt.KIM_STATUS_OK) then

@@ -64,6 +64,7 @@ SRC = mod_global.F03  \
 
 FOBJ = mod_global.o mod_atomistic.o mod_lattice.o mod_crystal.o mod_kim.o mod_equilibrium.o main.o
 
+runner : $(FOBJ)
 main.o : main.F03 mod_lattice.o mod_crystal.o mod_equilibrium.o mod_global.o
 mod_global.o : mod_global.F03
 mod_lattice.o : mod_lattice.F03 mod_global.o

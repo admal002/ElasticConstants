@@ -60,16 +60,15 @@ module mod_equilibrium
             numBasisAtoms = size(cT%basisAtomsCoords,2)
             numParticles = numBasisAtoms * (numCellsPerSide**(DIM))
 
-            ! Allocate memory to the kim object
-            call allocate_kim(pkim,numParticles,cT%numSpecies)
-
-            ! Initialize KIM
-            call initialize_kim(pkim)
-
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! Now prepare the atomistic system
 
             call constructAtomistic(atomisticSystem,numParticles,nbc)
+
+            ! Broadcast the atomistic system to the kim api
+            patomisticSystem => atomisticSystem
+            call broadcastAtomistic_kim(pkim,patomisticSystem)
+            call initialize_kim(pkim)
 
             ! Fill in the coordinates
             call constructGlobalCrystal(numCellsPerSide,cT,atomisticSystem%coords,atomisticSystem%particleSpecies)
@@ -78,10 +77,6 @@ module mod_equilibrium
             atomisticSystem%boxSideLengths  = 1000._cd
             atomisticSystem%numSpecies = cT%numSpecies
             atomisticSystem%cutoff = getCutoff_kim(pkim)
-
-            ! Broadcast the atomistic system to the kim api
-            patomisticSystem => atomisticSystem
-            call broadcastAtomistic_kim(pkim,patomisticSystem)
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
@@ -135,11 +130,6 @@ module mod_equilibrium
             case('hcp')
                 equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,1)/p0(1),p(1,2)/p0(2))
             end select
-
-            write(*,*) equilibriumCrystal%LatticeType%latVec(:,1)
-            write(*,*) equilibriumCrystal%LatticeType%latVec(:,2)
-            write(*,*) equilibriumCrystal%LatticeType%latVec(:,3)
-            stop
 
             deallocate(y)
             deallocate(p)

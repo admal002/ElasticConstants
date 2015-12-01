@@ -6,7 +6,7 @@ program main
     use mod_crystal
     use mod_lattice
     use mod_equilibrium, only : equilibriumCrystal
-    use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic,constructNeighList
+    use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic,constructNeighList,pA
     use mod_kim,         only : setup_kim, allocate_kim, initialize_kim, getCutoff_kim, &
                                 destroy_kim, write_results_kim, broadcastAtomistic_kim,&
                                 getSpeciesCode_kim,compute_kim
@@ -68,6 +68,8 @@ program main
     crystalType%numSpecies = numSpecies
     crystalType%basisAtomsSpecies(:) = species
     crystalType%basisAtomsSpeciesCode(:) = getSpeciesCode_kim(pkim,species)
+    call destroy_kim(pkim)
+
 
     select case(trim(crystalStructure))
     case('fcc')
@@ -94,21 +96,28 @@ program main
 
     ! allocate memory
     call constructAtomistic(atomisticSystem,numParticles,nbc)
+
     ! Broadcast the atomistic system to the kim api
     patomisticSystem => atomisticSystem
-
-    !call constructGlobalCrystal(numCellsPerSide,crystalTypeRelaxed,atomisticSystem%coords,atomisticSystem%particleSpecies)
-    call constructGlobalCrystal(numCellsPerSide,crystalType,atomisticSystem%coords,atomisticSystem%particleSpecies)
+    call setup_kim(pkim,testname,modelname,nbc)
+    call broadcastAtomistic_kim(pkim,patomisticSystem)
+    call initialize_kim(pkim)
 
     ! Fill in the coordinates using the relaxed crystal
+    call constructglobalcrystal(numcellsperside,crystaltyperelaxed,atomisticsystem%coords,atomisticsystem%particlespecies)
     atomisticSystem%nbc = nbc
     atomisticSystem%numContributingParticles = 1
     atomisticSystem%boxSideLengths  = 1000._cd
     atomisticSystem%numSpecies = numSpecies
-    atomisticSystem%cutoff = rcutoff
+    atomisticSystem%cutoff = getCutoff_kim(pkim)
 
-    call broadcastAtomistic_kim(pkim,patomisticSystem)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    call constructNeighList(atomisticSystem)
+    pA => atomisticSystem
+    call compute_kim(pkim)
+    nullify(pA)
+
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Write results
