@@ -115,8 +115,7 @@ module mod_kim
         end subroutine initialize_kim
 
         subroutine broadcastAtomistic_kim(pkim,aS)
-            use mod_atomistic, only : Atomistic,NeighObject_type,   &
-                                      process_dEdr,process_d2Edr2
+            use mod_atomistic, only : Atomistic,NeighObject_type
 
             ! Passed variables
             type(c_ptr), intent(in) :: pkim
@@ -166,22 +165,6 @@ module mod_kim
                 stop
             endif
 
-            call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
-            call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
-            ! Allocate and store pointers to process_dedr and process_d2edr2 subroutines
-            ier = kim_api_set_method(pkim, "process_dEdr", SizeOne, c_funloc(process_dedr))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
-            endif
-
-            ier = kim_api_set_method(pkim, "process_d2Edr2", SizeOne, c_funloc(process_d2edr2))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
-            endif
 
         end subroutine broadcastAtomistic_kim
 

@@ -15,29 +15,77 @@ module mod_atomistic
         integer(c_int)               :: numParticles,numContributingParticles,nbc,numSpecies
         type(neighObject_type)       :: neighObject
         integer(c_int),allocatable   :: particleSpecies(:)
-        real(c_double)               :: boxSideLengths,cutoff,energy
+        real(c_double)               :: boxSideLengths(DIM),cutoff,energy
+        !type(Fsge)                   :: fsgeType
     end type Atomistic
 
+    type(Atomistic), pointer :: pA
     contains
 
-        subroutine constructAtomistic(pAS,numParticles,nbc)
+        subroutine constructAtomistic(aS,numParticles,nbc)
             implicit none
 
             integer(c_int), intent(in) :: numParticles,nbc
-            type(Atomistic)            :: pAS
+            type(Atomistic)            :: aS
 
-            pAS%numParticles = numParticles
+            aS%numParticles = numParticles
 
             ! Allocate memory to atomistic system
-            allocate(pAS%coords(DIM,numParticles))
-            allocate(pAS%particleSpecies(numParticles))
+            allocate(aS%coords(DIM,numParticles))
+            allocate(aS%particleSpecies(numParticles))
 
-            allocate(pAS%neighObject%neighborList(numParticles+1, numParticles))
+            allocate(aS%neighObject%neighborList(numParticles+1, numParticles))
             if (nbc.eq.0 .or. nbc.eq.2) then
-                allocate(pAS%neighObject%RijList(DIM,numParticles+1, numParticles))
+                allocate(aS%neighObject%RijList(DIM,numParticles+1, numParticles))
             endif
 
         end subroutine constructAtomistic
+
+        function process_dedr(pkim,deidr,r,pdx,i,j)bind(c)
+        use KIM_API_F03
+        implicit none
+
+        ! Passed variables
+        type(c_ptr),   intent(in) :: pkim,pdx
+        real(c_double),intent(in) :: deidr,r
+        integer(c_int),intent(in) :: i,j
+        integer(c_int)            :: process_dedr
+
+        ! Local variables
+        real(c_double), pointer :: dx(:)
+        real(c_double) :: R3(DIM)
+
+        call c_f_pointer(pdx,dx,[DIM])
+
+        process_dedr = KIM_STATUS_OK
+        return
+        end function process_dedr
+
+        function process_d2edr2(pkim,d2edr2,pr,pdx,pi,pj)bind(c)
+        use KIM_API_F03
+        implicit none
+
+        ! Passed variables
+        type(c_ptr),   intent(in) :: pkim,pr,pdx
+        real(c_double),intent(in) :: d2edr2
+        type(c_ptr),   intent(in) :: pi,pj
+        integer(c_int)            :: process_d2edr2
+
+        ! Local variables
+        integer(c_int), pointer :: i(:);
+        integer(c_int), pointer :: j(:);
+        real(c_double), pointer :: dx(:,:)
+        real(c_double), pointer :: r(:)
+        real(c_double) :: R1(DIM),R2(DIM),R3(DIM),R4(DIM)
+
+        call c_f_pointer(pi, i, [2])
+        call c_f_pointer(pj, j, [2])
+        call c_f_pointer(pdx,dx,[DIM,2])
+        call c_f_pointer(pr,r,[2])
+
+        process_d2edr2 = KIM_STATUS_OK
+        return
+        end function process_d2edr2
 
         subroutine constructNeighList(aS)
             implicit none
@@ -204,10 +252,10 @@ module mod_atomistic
             implicit none
             type(Atomistic) :: aS
 
-            deallocate(aS%coords)
-            deallocate(aS%particleSpecies)
-            deallocate(aS%neighObject%neighborList)
-            deallocate(aS%neighObject%RijList)
+            if (allocated(aS%coords)) deallocate(aS%coords)
+            if (allocated(aS%particleSpecies)) deallocate(aS%particleSpecies)
+            if (associated(aS%neighObject%neighborList)) deallocate(aS%neighObject%neighborList)
+            if (associated(aS%neighObject%RijList)) deallocate(aS%neighObject%RijList)
         end subroutine destroyAtomistic
 end module mod_atomistic
 

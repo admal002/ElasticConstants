@@ -115,44 +115,70 @@ module mod_kim
         end subroutine initialize_kim
 
         subroutine broadcastAtomistic_kim(pkim,aS)
-            use mod_atomistic, only : Atomistic,NeighObject_type,   &
-                                      process_dEdr,process_d2Edr2
+            use mod_atomistic, only : Atomistic,NeighObject_type
 
             ! Passed variables
             type(c_ptr), intent(in) :: pkim
-            type(Atomistic),pointer :: aS
+            type(Atomistic) :: aS
             
             ! Local variables
-            integer(c_int) :: pbcFlag, halfFlag,sizecoor
+            integer(c_int) :: pbcFlag, halfFlag,sizecoor,N,nbc
+            type(NeighObject_type),target :: neighObject
 
+            real(c_double), pointer :: coords(:,:); type(c_ptr) :: pcoor
+            integer(c_int), pointer :: numberOfParticles;   type(c_ptr) :: pnParts
+            integer(c_int), pointer :: numContrib;          type(c_ptr) :: pnumContrib
+            integer(c_int), pointer :: numberOfSpecies;     type(c_ptr) :: pnOfSpecies
+            integer(c_int), pointer :: particleSpecies(:);  type(c_ptr) :: pparticleSpecies
+            real(c_double), pointer :: cutoff;              type(c_ptr) :: pcutoff
+            real(c_double), pointer :: energy;              type(c_ptr) :: penergy
+            real(c_double), pointer :: boxSideLengths(:);   type(c_ptr) :: pboxSideLengths
 
-            pbcFlag = TRUEFALSE((aS%nbc.eq.4).or.(aS%nbc.eq.5))
-            halfFlag = TRUEFALSE((aS%nbc.eq.0).or.(aS%nbc.eq.1).or.(aS%nbc.eq.4))
+            N = aS%numParticles
+            nbc = aS%nbc
 
-            sizecoor = DIM*aS%numParticles
-            call kim_api_setm_data(pkim, ier, &
-            "numberOfParticles",           SizeOne, c_loc(aS%numParticles),   1,&
-            "numberContributingParticles", SizeOne, c_loc(aS%numContributingParticles), halfFlag,&
-            "numberOfSpecies",             SizeOne, c_loc(aS%numSpecies),     1,&
-            "particleSpecies",     aS%numParticles, c_loc(aS%particleSpecies),1)
+        ! Unpack data from KIM object
+            !
+            call kim_api_getm_data(pkim, ier, &
+               "numberOfParticles",           pnParts,          1,                                   &
+               "numberContributingParticles", pnumContrib,      TRUEFALSE((nbc.eq.0).or.(nbc.eq.1).or.(nbc.eq.4)), &
+               "numberOfSpecies",             pnOfSpecies,      1,                                   &
+               "particleSpecies",             pparticleSpecies, 1,                                   &
+               "coordinates",                 pcoor,            1,                                   &
+               "cutoff",                      pcutoff,          1,                                   &
+               "boxSideLengths",              pboxSideLengths,  TRUEFALSE((nbc.eq.4).or.(nbc.eq.5)), &
+               "energy",                      penergy,          1)                              
             if (ier.lt.KIM_STATUS_OK) then
              idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                         "kim_api_setm_data", ier)
+                                         "kim_api_getm_data", ier)
              stop
             endif
-            call kim_api_setm_data(pkim, ier, &
-            "coordinates",  DIM*aS%numParticles   , c_loc(aS%coords),         1,                 &
-            "cutoff",                      SizeOne, c_loc(aS%cutoff), 1,&
-            "boxSideLengths",              DIM, c_loc(aS%boxSideLengths), pbcFlag,           &
-            "energy",                      SizeONe, c_loc(aS%energy),         1)
+            call c_f_pointer(pnParts, numberOfParticles)
+            if ((nbc.eq.0).or.(nbc.eq.1).or.(nbc.eq.4)) call c_f_pointer(pnumContrib,numContrib)
+            call c_f_pointer(pnOfSpecies, numberOfSpecies)
+            call c_f_pointer(pparticleSpecies, particleSpecies, [N])
+            call c_f_pointer(pcoor, coords, [DIM,N])
+            call c_f_pointer(pcutoff, cutoff)
 
-            if (ier.lt.KIM_STATUS_OK) then
-             idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                         "kim_api_setm_data", ier)
-             stop
+            if ((nbc.eq.4).or.(nbc.eq.5)) call c_f_pointer(pboxSideLengths, &
+                                                         boxSideLengths, [DIM])
+            call c_f_pointer(penergy, energy)
+
+            ! Set values
+            numberOfParticles = as%numParticles
+            if ((nbc.eq.0).or.(nbc.eq.1).or.(nbc.eq.4)) numContrib = aS%numContributingParticles
+            if ((nbc.eq.4).or.(nbc.eq.5)) boxSideLengths = aS%boxSideLengths
+            numberOfSpecies = aS%numSpecies
+            particleSpecies    = aS%particleSpecies
+            coords = aS%coords
+
+
+            allocate(neighObject%neighborList(aS%numParticles+1, aS%numParticles))
+            if (aS%nbc.eq.0 .or. aS%nbc.eq.2) then
+                allocate(neighObject%RijList(DIM,aS%numParticles+1, aS%numParticles))
             endif
-
-            ier = kim_api_set_data(pkim, "neighObject", SizeOne, c_loc(aS%neighObject))
+            
+            ier = kim_api_set_data(pkim, "neighObject", SizeOne, c_loc(neighObject))
             if (ier.lt.KIM_STATUS_OK) then
                 idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
                                          "kim_api_set_data", ier)
@@ -166,22 +192,6 @@ module mod_kim
                 stop
             endif
 
-            call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
-            call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
-            ! Allocate and store pointers to process_dedr and process_d2edr2 subroutines
-            ier = kim_api_set_method(pkim, "process_dEdr", SizeOne, c_funloc(process_dedr))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
-            endif
-
-            ier = kim_api_set_method(pkim, "process_d2Edr2", SizeOne, c_funloc(process_d2edr2))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
-            endif
 
         end subroutine broadcastAtomistic_kim
 

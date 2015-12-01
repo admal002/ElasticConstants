@@ -8,6 +8,7 @@ module mod_crystal
         character(len=2),allocatable :: basisAtomsSpecies(:)
         integer(c_int),allocatable   :: basisAtomsSpeciesCode(:)
         real(c_double),allocatable   :: basisAtomsCoords(:,:)
+        !type(Fsge)                   :: fsgeType
     end type Crystal
 
     contains
@@ -59,7 +60,7 @@ module mod_crystal
 
             ! make sure that crystalType is ready before proceeding
             ! Nikhil
-            a = 1
+            a = size(cT%basisAtomsCoords,2)
             do i=1,numCellsPerSide
                 do j=1,numCellsPerSide
                     do k=1,numCellsPerSide
@@ -81,6 +82,33 @@ module mod_crystal
                 enddo
             enddo
         end subroutine constructGlobalCrystal
+
+        function scaleCrystal(crystalType,scaleX,scaleY,scaleZ)
+            implicit none
+
+            ! Passed variables
+            type(Crystal), intent(in)  :: crystalType
+            real(c_double), intent(in) :: scaleX,scaleY,scaleZ
+
+            ! Local variables
+            type(Crystal) :: scaleCrystal
+            integer(c_int) :: numBasisAtoms
+
+            numBasisAtoms = size(crystalType%basisAtomsCoords,2)
+            call allocateCrystal(scaleCrystal,numBasisAtoms)
+
+            scaleCrystal = crystalType
+
+            scaleCrystal%LatticeType%latVec(1,:) = scaleX * crystalType%LatticeType%latVec(1,:)
+            scaleCrystal%LatticeType%latVec(2,:) = scaleY * crystalType%LatticeType%latVec(2,:)
+            scaleCrystal%LatticeType%latVec(3,:) = scaleZ * crystalType%LatticeType%latVec(3,:)
+
+            scaleCrystal%basisAtomsCoords(1,:) = scaleX * crystalType%basisAtomsCoords(1,:)
+            scaleCrystal%basisAtomsCoords(2,:) = scaleY * crystalType%basisAtomsCoords(2,:)
+            scaleCrystal%basisAtomsCoords(3,:) = scaleZ * crystalType%basisAtomsCoords(3,:)
+
+            scaleCrystal%LatticeType%latVol = scaleX*scaleY*scaleZ*scaleCrystal%LatticeType%latVol
+        end function scaleCrystal
 
 end module mod_crystal
 

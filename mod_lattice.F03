@@ -2,8 +2,8 @@ module mod_lattice
     use mod_global
     implicit none
     type Lattice
-        real, dimension(DIM,DIM) :: latVec
-        real :: latVol
+        real(c_double), dimension(DIM,DIM) :: latVec
+        real(c_double) :: latVol
     end type Lattice
 
     contains
@@ -15,7 +15,7 @@ module mod_lattice
             real(c_double), intent(in) :: latticeSpacing
 
             ! Local variables
-            real, dimension(DIM,DIM) :: latVec
+            real(c_double), dimension(DIM,DIM) :: latVec
             
             latVec(:,1) = latticeSpacing*(/0.0_cd, 0.5_cd, 0.5_cd/)
             latVec(:,2) = latticeSpacing*(/0.5_cd, 0.0_cd, 0.5_cd/)
@@ -32,7 +32,7 @@ module mod_lattice
             real(c_double), intent(in) :: latticeSpacing
 
             ! Local variables
-            real, dimension(DIM,DIM) :: latVec
+            real(c_double), dimension(DIM,DIM) :: latVec
             
             latVec(:,1) = latticeSpacing*(/-0.5_cd, 0.5_cd, 0.5_cd/)
             latVec(:,2) = latticeSpacing*(/0.5_cd, -0.5_cd, 0.5_cd/)
@@ -49,7 +49,7 @@ module mod_lattice
             real(c_double), intent(in) :: latticeSpacing,latticeSpacing_z
 
             ! Local variables
-            real, dimension(DIM,DIM) :: latVec
+            real(c_double), dimension(DIM,DIM) :: latVec
             
             latVec(:,1) = latticeSpacing*(/1.0_cd, 0.0_cd, 0.0_cd/)
             latVec(:,2) = latticeSpacing*(/-0.5_cd, 0.5_cd*sqrt(3._cd), 0.0_cd/)

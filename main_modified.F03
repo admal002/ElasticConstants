@@ -6,7 +6,7 @@ program main
     use mod_crystal
     use mod_lattice
     use mod_equilibrium, only : equilibriumCrystal
-    use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic,constructNeighList
+    use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic
     use mod_kim,         only : setup_kim, allocate_kim, initialize_kim, getCutoff_kim, &
                                 destroy_kim, write_results_kim, broadcastAtomistic_kim,&
                                 getSpeciesCode_kim,compute_kim
@@ -87,18 +87,19 @@ program main
     end select 
 
     ! Relax the crystal
-    crystalTypeRelaxed = equilibriumCrystal(crystalType,crystalStructure,testname,modelname)
+    !crystalTypeRelaxed = equilibriumCrystal(crystalType,crystalStructure,testname,modelname)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Now prepare the atomistic system using the relaxed crystal
 
     ! allocate memory
     call constructAtomistic(atomisticSystem,numParticles,nbc)
+    !call constructGlobalCrystal(numCellsPerSide,crystalTypeRelaxed,atomisticSystem%coords,atomisticSystem%particleSpecies)
+    call constructGlobalCrystal(numCellsPerSide,crystalType,atomisticSystem%coords,atomisticSystem%particleSpecies)
+
     ! Broadcast the atomistic system to the kim api
     patomisticSystem => atomisticSystem
 
-    !call constructGlobalCrystal(numCellsPerSide,crystalTypeRelaxed,atomisticSystem%coords,atomisticSystem%particleSpecies)
-    call constructGlobalCrystal(numCellsPerSide,crystalType,atomisticSystem%coords,atomisticSystem%particleSpecies)
 
     ! Fill in the coordinates using the relaxed crystal
     atomisticSystem%nbc = nbc
@@ -107,9 +108,10 @@ program main
     atomisticSystem%numSpecies = numSpecies
     atomisticSystem%cutoff = rcutoff
 
-    call broadcastAtomistic_kim(pkim,patomisticSystem)
+    call broadcastAtomistic_kim(pkim,atomisticSystem)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    call compute_kim(pkim)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Write results
     call write_results_kim
@@ -121,9 +123,9 @@ program main
     print '("Crystal strucutre        : ",A)', trim(crystalStructure)
     print '("Species                  : ",A)', species
 
+    nullify(patomisticSystem)
     call destroyAtomistic(atomisticSystem)
     call destroy_kim(pkim)
-    nullify(patomisticSystem)
 
 
     100 stop
