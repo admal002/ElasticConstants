@@ -8,7 +8,6 @@ module mod_crystal
         character(len=2),allocatable :: basisAtomsSpecies(:)
         integer(c_int),allocatable   :: basisAtomsSpeciesCode(:)
         real(c_double),allocatable   :: basisAtomsCoords(:,:)
-        !type(Fsge)                   :: fsgeType
     end type Crystal
 
     contains

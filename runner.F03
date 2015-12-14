@@ -37,7 +37,7 @@
 !    It is made large enough to ensure each atoms in the primitive unit
 !    cell truely represents a
 !    bulk atom. In other words, this depends on the cutoff of the model. Seven seems
-!    to be a large number for most models. 
+!    to be a large number for most materials.
 
 #include "KIM_API_status.h"
 #define THIS_FILE_NAME __FILE__

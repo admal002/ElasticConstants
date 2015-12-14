@@ -60,18 +60,22 @@ SRC = mod_global.F03  \
 	  mod_atomistic.F03 \
 	  mod_kim.F03	  \
 	  mod_equilibrium.F03 \
+	  mod_fsge.F03 \
+	  mod_matrix.F03 \
 	  main.F03
 
-FOBJ = mod_global.o mod_atomistic.o mod_lattice.o mod_crystal.o mod_kim.o mod_equilibrium.o main.o
+FOBJ = mod_global.o mod_fsge.o mod_matrix.o mod_atomistic.o mod_lattice.o mod_crystal.o mod_kim.o mod_equilibrium.o main.o
 
 runner : $(FOBJ)
 main.o : main.F03 mod_lattice.o mod_crystal.o mod_equilibrium.o mod_global.o
 mod_global.o : mod_global.F03
+mod_matrix.o : mod_matrix.F03 mod_global.o
 mod_lattice.o : mod_lattice.F03 mod_global.o
 mod_crystal.o : mod_crystal.F03 mod_lattice.o mod_global.o
-mod_atomistic.o : mod_atomistic.F03  mod_global.o
+mod_atomistic.o : mod_atomistic.F03 mod_global.o mod_fsge.o mod_matrix.o mod_fsge.o
 mod_kim.o : mod_kim.F03 mod_atomistic.o mod_global.o
 mod_equilibrium.o : mod_equilibrium.F03 mod_kim.o mod_crystal.o mod_atomistic.o mod_global.o
+mod_fsge : mod_fsge.F03 mod_global.o
 
 .PHONY: all clean
 

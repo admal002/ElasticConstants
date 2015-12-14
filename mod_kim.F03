@@ -82,6 +82,7 @@ module mod_kim
                                          "Unknown NBC method", ier)
                 stop
             endif
+
         end subroutine setup_kim
 
         subroutine allocate_kim(pkim,numParticles,numSpecies)
@@ -100,10 +101,19 @@ module mod_kim
 
         end subroutine allocate_kim
 
-        subroutine initialize_kim(pkim)
+        subroutine initialize_kim(pkim,cutoff)
+            use mod_atomistic, only : Atomistic
             implicit none
             ! Passed variables
-            type(c_ptr)     :: pkim
+            type(c_ptr)             :: pkim
+            real(c_double),target   :: cutoff
+
+            ier = kim_api_set_data(pkim,"cutoff",SizeOne, c_loc(cutoff))
+            if (ier.lt.KIM_STATUS_OK) then
+             idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                         "kim_api_setm_data", ier)
+             stop
+            endif
 
             ! call model's init routine
             ier = kim_api_model_init(pkim)
@@ -112,11 +122,13 @@ module mod_kim
                                          "kim_api_model_init", ier)
                 stop
             endif
+
         end subroutine initialize_kim
 
         subroutine broadcastAtomistic_kim(pkim,aS)
             use mod_atomistic, only : Atomistic,NeighObject_type,   &
-                                      process_dEdr,process_d2Edr2
+                                      process_dedr,process_d2edr2
+                                      
 
             ! Passed variables
             type(c_ptr), intent(in) :: pkim
@@ -142,7 +154,6 @@ module mod_kim
             endif
             call kim_api_setm_data(pkim, ier, &
             "coordinates",  DIM*aS%numParticles   , c_loc(aS%coords),         1,                 &
-            "cutoff",                      SizeOne, c_loc(aS%cutoff), 1,&
             "boxSideLengths",              DIM, c_loc(aS%boxSideLengths), pbcFlag,           &
             "energy",                      SizeONe, c_loc(aS%energy),         1)
 
@@ -166,24 +177,43 @@ module mod_kim
                 stop
             endif
 
-            !call kim_api_set_compute(pkim,'process_dEdr',KIM_COMPUTE_TRUE,ier)
-            !call kim_api_set_compute(pkim,'process_d2Edr2',KIM_COMPUTE_TRUE,ier)
-            ! Allocate and store pointers to process_dedr and process_d2edr2 subroutines
-            ier = kim_api_set_method(pkim, "process_dEdr", SizeOne, c_funloc(process_dedr))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
+            if (aS%processdEdrFlag .eq. 1) then
+                ! Allocate and store pointers to process_dedr and process_d2edr2 subroutines
+                ier = kim_api_set_method(pkim, "process_dEdr", SizeOne, c_funloc(process_dedr))
+                if (ier.lt.KIM_STATUS_OK) then
+                   idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                              "kim_api_set_method", ier)
+                   stop
+                endif
             endif
 
-            ier = kim_api_set_method(pkim, "process_d2Edr2", SizeOne, c_funloc(process_d2edr2))
-            if (ier.lt.KIM_STATUS_OK) then
-               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                          "kim_api_set_method", ier)
-               stop
+            if (aS%processd2Edr2Flag .eq. 1) then
+                ier = kim_api_set_method(pkim, "process_d2Edr2", SizeOne, c_funloc(process_d2edr2))
+                if (ier.lt.KIM_STATUS_OK) then
+                   idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                              "kim_api_set_method", ier)
+                   stop
+                endif
             endif
 
         end subroutine broadcastAtomistic_kim
+
+        subroutine setCompute_kim(pkim,nm,on)
+            implicit none
+
+            ! Passed variables
+            type(c_ptr), intent(in)     :: pkim
+            character(len=*),intent(in) :: nm
+            integer(c_int),intent(in)   :: on
+
+            call kim_api_set_compute(pkim,trim(nm),TRUEFALSE(on .eq. 1),ier)
+            if (ier.lt.KIM_STATUS_OK) then
+               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                          "kim_api_set_compute", ier)
+               stop
+            endif
+
+        end subroutine setCompute_kim
 
         function get_neigh(pkim,mode,request,part,numnei,pnei1part, &
                                       pRij) bind(c)
@@ -277,7 +307,7 @@ module mod_kim
         pnei1part = c_loc(neighObject%neighborList(2,part))
 
         ! set pointer to Rij to appropriate value
-        if (associated(neighObject%RijList)) then
+        if (allocated(neighObject%RijList)) then
         pRij = c_loc(neighObject%RijList(1,1,part))
         else
         pRij = c_null_ptr
@@ -426,6 +456,22 @@ module mod_kim
             endif
             return
             end function getSpeciesCode_kim
+
+        function getCompute_kim(pkim,nm)
+            implicit none
+
+            ! Passed variables
+            type(c_ptr), intent(in)     :: pkim
+            character(len=*),intent(in) :: nm
+            integer(c_int)              :: getCompute_kim
+
+            getCompute_kim = kim_api_get_compute(pkim,trim(nm),ier)
+            if (ier.lt.KIM_STATUS_OK) then
+               idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                                          "kim_api_get_compute", ier)
+               stop
+            endif
+        end function getCompute_kim
 
 end module mod_kim
 

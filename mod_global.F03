@@ -7,4 +7,5 @@ module mod_global
     implicit none
     integer(c_int), parameter :: DIM=3
     integer(c_int), parameter :: cd = c_double ! used for literal constants
+    integer(c_int) :: analytical
 end module mod_global

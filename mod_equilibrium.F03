@@ -46,13 +46,12 @@ module mod_equilibrium
             end select
             np = ndim
             mp = ndim+1
-            ftol = 2._cd*epsilon(1._cd)
+            ftol = epsilon(1._cd)
             allocate(p(mp,np))
             allocate(p0(np))
             allocate(y(mp))
             
             crystalStructure = cS
-            crystalType = cT
 
             ! Perform the hand-shake and determine the boundary conditions
             call setup_kim(pkim,testname,modelname,nbc)
@@ -64,21 +63,39 @@ module mod_equilibrium
             ! Now prepare the atomistic system
 
             call constructAtomistic(atomisticSystem,numParticles,nbc)
-
-            ! Broadcast the atomistic system to the kim api
             patomisticSystem => atomisticSystem
-            call broadcastAtomistic_kim(pkim,patomisticSystem)
-            call initialize_kim(pkim)
+            call initialize_kim(pkim,patomisticSystem%cutoff)
 
             ! Fill in the coordinates
-            call constructGlobalCrystal(numCellsPerSide,cT,atomisticSystem%coords,atomisticSystem%particleSpecies)
+            call constructGlobalCrystal(numCellsPerSide,cT,atomisticSystem%coords,  &
+                                        atomisticSystem%particleSpecies)
             atomisticSystem%nbc = nbc
             atomisticSystem%numContributingParticles = 1
             atomisticSystem%boxSideLengths  = 1000._cd
             atomisticSystem%numSpecies = cT%numSpecies
-            atomisticSystem%cutoff = getCutoff_kim(pkim)
+            if (analytical .eq. 1) then 
+                atomisticSystem%processdEdrFlag   = 1
+                atomisticSystem%processd2Edr2Flag = 1
+            else
+                atomisticSystem%processdEdrFlag   = 0
+                atomisticSystem%processd2Edr2Flag = 0
+            endif
+
+            ! Broadcast the atomistic system
+            call broadcastAtomistic_kim(pkim,patomisticSystem)
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+
+
+            call allocateCrystal(crystalType,numBasisAtoms)
+            crystalType = cT
+
+            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+            ! Start relaxation using the simplex method
+
+            ! Set the process flags in the kim api to 0, as we do not need them
+            if (atomisticSystem%processdEdrFlag .eq. 1)   call setCompute_kim(pkim,'process_dEdr',0)
+            if (atomisticSystem%processd2Edr2Flag .eq. 1) call setCompute_kim(pkim,'process_d2Edr2',0)
 
             ! Calculate energy for initial crystal
             call constructNeighList(atomisticSystem)
@@ -88,9 +105,6 @@ module mod_equilibrium
             call compute_kim(pkim)
             nullify(pA)
             y(1) = atomisticSystem%energy
-
-            ! Calculate energy for a crystal twice the size of the initial
-            ! crystal
 
             do dimn=1,ndim
                 select case(trim(cS))
@@ -120,6 +134,7 @@ module mod_equilibrium
             enddo
 
             call amoeba(p,y,mp,np,ndim,ftol,iter)
+            print '("Equilibrium lattice spacing : ",3f15.10)', p(1,:)
 
             call allocateCrystal(equilibriumCrystal,numBasisAtoms)
             equilibriumCrystal = cT
