@@ -2,7 +2,7 @@ Author: Nikhil Chandra Admal, University of California Los Angeles (admal002 |AT
 Date  : 08/21/2015
 Ver   : 1.0
 
-This test driver (TD) computes the first strain gradient elasticity (SGE) tensor for simple crystals at an equilibrium lattice spacing dictated by the model. The current version (v1.0) is limited to FCC and BCC crystal structures. The TD computes the SGE tensor for a crystal with equilibrium lattice spacing corresponding to the model coupled to the test using this TD. In other words, this TD depends on a test that computes equilibrium lattice spacing.
+This test driver (TD) computes the first strain gradient elasticity (SGE) tensor for simple crystals at an equilibrium lattice spacing dictated by the model. The current version (v1.0) is limited to fcc, bcc and hcp crystal structures. The TD computes the SGE tensor for a crystal with equilibrium lattice spacing corresponding to the model coupled to the test using this TD. In other words, this TD depends on a test that computes equilibrium lattice spacing.
 
 The user specifies the following variables through stdin using a Jinja template file named 'pipeline.stdin.tpl' contained in the directory of a Test which uses this TD (the sequence in which they are specified must be the same as below):
 
@@ -55,7 +55,10 @@ D_112123 = d(7,16)
 
 since the triads 112 and 123 occur at 7th and 16th position in the representation e defined in (1). 
 
-For cubic materials, it can be shown that there are only 11 independent constants in D. See [1] for a group-theoretic analysis of the strain gradient elasticity tensor for various material groups. Moreover, for cubic materials, d reduces to the following block-diagonal form:
+Cubic crystals:
+--------------
+
+For cubic materials, there are only 11 independent constants in D. See [1] for a group-theoretic analysis of the strain gradient elasticity tensor for various material groups. Moreover, for cubic materials, d reduces to the following block-diagonal form:
          __              __
          | A9  0   0    0  |
      d = |     A9  0    0  |,                               ----------->  (2)
@@ -75,5 +78,21 @@ where {a1,...,a9,j1,j2}  are the 11 independent constants of the cubic material.
 
 d(1,1), d(2,2), d(3,3), d(1,2), d(1,3), d(2,3), d(2,4), d(2,5), d(3,4), d(16,16), d(16,17).
 
-[1] N. Auffray, H. Le Quang, Q.C. He, Matrix representations for 3D strain-gradient elasticity, Journal of the   Mechanics and Physics of Solids, Volume 61, Issue 5, May 2013, Pages 1202-1223.
+Hexagonal crystals:
+------------------
+
+For hexagonal crystals, there are 22 independent constants in D. d reduces to the following block-diagonal form:
+
+         __                         __
+         | (A11+ \eta Ac)  0   0    0  |
+     d = |                A11  0    0  |,                               ----------->  (2)
+         |                     H6   0  |
+         |_                        J4 _|
+
+
+where A11, H6 and J4 are 5x5, 5x5 and 3x3 matrices with 11,6 and 4 independent constants respectively. See [1,2] for the exact forms of these matrices.
+
+
+[1] N. Auffray, H. Le Quang, Q.C. He, Matrix representations for 3D strain-gradient elasticity, Journal of the Mechanics and Physics of Solids, Volume 61, Issue 5, May 2013, Pages 1202-1223.
+[2] The atomistic representation of Mindlin’s first strain gradient elasticity tensors, Journal of the Mechanics and Physics of Solids, Submitted.
 

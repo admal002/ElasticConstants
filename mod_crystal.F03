@@ -55,7 +55,11 @@ module mod_crystal
 
             ! Local variables
             integer(c_int) :: i,j,k,m,a
-            real(c_double) :: latVec(DIM)
+            real(c_double) :: latVec(DIM),center(DIM)
+
+            ! Center the crystal such the shift vectors are centered
+            center = (numCellsPerside/2)*sum(cT%latticeType%latVec,2) + &
+                     sum(cT%basisAtomsCoords,2)/size(cT%basisAtomsCoords,2)
 
             ! make sure that crystalType is ready before proceeding
             ! Nikhil
@@ -68,11 +72,11 @@ module mod_crystal
                                  (k-1) * cT%latticeType%latVec(:,3) 
                         do m=1,size(cT%basisAtomsCoords,2)
                             a = a+1
-                            coords(:,a) = latVec + cT%basisAtomsCoords(:,m)
+                            coords(:,a) = latVec + cT%basisAtomsCoords(:,m) - center
                             speciesCode(a) = cT%basisAtomsSpeciesCode(m)
                             if ((i.eq.numCellsPerside/2+1).and.(j.eq.numCellsPerSide/2+1) .and. &
                                 (k.eq.numCellsPerSide/2+1) ) then
-                                coords(:,m) = latVec + cT%basisAtomsCoords(:,m) ! put middle particle as #1
+                                coords(:,m) = latVec + cT%basisAtomsCoords(:,m) - center! put middle particle as #1
                                 speciesCode(m) = cT%basisAtomsSpeciesCode(m)
                                 a = a - 1
                             endif
@@ -80,6 +84,7 @@ module mod_crystal
                     enddo
                 enddo
             enddo
+
         end subroutine constructGlobalCrystal
 
         function scaleCrystal(crystalType,scaleX,scaleY,scaleZ)

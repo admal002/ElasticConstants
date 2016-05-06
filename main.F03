@@ -149,7 +149,6 @@ program main
             pA => atomisticSystem
             call compute_kim(pkim)
             nullify(pA)
-            write(*,*) atomisticSystem%energy
         else 
             call numerical_check_Cijkl(pkim,atomisticSystem)
             call numerical_check_Dijmkln(pkim,atomisticSystem)

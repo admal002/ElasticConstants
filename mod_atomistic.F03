@@ -65,7 +65,7 @@ module mod_atomistic
 
         call c_f_pointer(pdx,dx,[DIM])
 
-        R3 = (pA%coords(:,i) + pA%coords(:,j))/2._cd - pA%coords(:,1)
+        R3 = (pA%coords(:,i) + pA%coords(:,j))/2._cd
 
         pA%fsgeType%Tijm = pA%fsgeType%Tijm + deidr * tensor_prod(dx,dx,R3)/r
         pA%fsgeType%Eijkln = pA%fsgeType%Eijkln - deidr*tensor_prod(dx,dx,dx,dx,R3)/(r**3)
@@ -102,8 +102,8 @@ module mod_atomistic
 
         R1 = dx(:,1)
         R2 = dx(:,2)
-        R3 = (pA%coords(:,i(1)) + pA%coords(:,j(1)))/2._cd - pA%coords(:,1)
-        R4 = (pA%coords(:,i(2)) + pA%coords(:,j(2)))/2._cd - pA%coords(:,1)
+        R3 = (pA%coords(:,i(1)) + pA%coords(:,j(1)))/2._cd
+        R4 = (pA%coords(:,i(2)) + pA%coords(:,j(2)))/2._cd
 
         pA%fsgeType%Eijkln = pA%fsgeType%Eijkln + d2edr2*tensor_prod(R1,R1,R2,R2,R4)/(r(1)*r(2))
         pA%fsgeType%Cijkl  = pA%fsgeType%Cijkl + d2edr2*tensor_prod(R1,R1,R2,R2)/(r(1)*r(2))
