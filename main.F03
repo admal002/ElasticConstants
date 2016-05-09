@@ -342,10 +342,9 @@ subroutine numerical_check_Dijmkln(pkim,aS)
     type(Atomistic),intent(inout) :: aS
 
     ! Local variables
-    real(c_double), allocatable            :: coords_centered(:,:),coords_original(:,:)
+    real(c_double), allocatable            :: coords_original(:,:)
     integer(c_int)                         :: p,q,r,s,i,j,m,k,l,n,indx(3),nParts
     real(c_double)                         :: energy_plus,energy_neg,eps
-    real(c_double), dimension(DIM)         :: shift
     real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
 
     ! Set the process flags in the kim api to 0, as we do not need them
@@ -353,17 +352,10 @@ subroutine numerical_check_Dijmkln(pkim,aS)
     if (aS%processd2Edr2Flag .eq. 1) call setCompute_kim(pkim,'process_d2Edr2',0)
 
     nParts = aS%numParticles
-    allocate(coords_centered(DIM,nParts))
     allocate(coords_original(DIM,nParts))
 
     coords_original = aS%coords
-    coords_centered = aS%coords
     eps             = 5.e-3
-
-    shift(:) = aS%coords(:,1)
-    do p=1,nParts
-        coords_centered(:,p) = coords_centered(:,p) - shift(:)
-    enddo
 
     do q=1,size(aS%fsgeTypeNumerical%IndComponentsD,1)
         energy_plus = 0._cd
@@ -375,7 +367,7 @@ subroutine numerical_check_Dijmkln(pkim,aS)
         k = indx(1); l = indx(2); n = indx(3)
 
         do p=1,4
-            aS%coords = coords_centered
+            aS%coords = coords_original
             Eijk = 0._cd
             Cijk = 0._cd
 
@@ -446,15 +438,15 @@ subroutine numerical_check_Dijmkln(pkim,aS)
         
             do r=1,nParts
                 do s=1,DIM
-                   aS%coords(s,r)   = aS%coords(s,r) + 0.5_cd*Cijk(s,1,1) * coords_centered(1,r) * coords_centered(1,r) +   &
-                                                       0.5_cd*Cijk(s,1,2) * coords_centered(1,r) * coords_centered(2,r) +   &
-                                                       0.5_cd*Cijk(s,1,3) * coords_centered(1,r) * coords_centered(3,r) +   &
-                                                       0.5_cd*Cijk(s,2,1) * coords_centered(2,r) * coords_centered(1,r) +   &
-                                                       0.5_cd*Cijk(s,2,2) * coords_centered(2,r) * coords_centered(2,r) +   &
-                                                       0.5_cd*Cijk(s,2,3) * coords_centered(2,r) * coords_centered(3,r) +   &
-                                                       0.5_cd*Cijk(s,3,1) * coords_centered(3,r) * coords_centered(1,r) +   &
-                                                       0.5_cd*Cijk(s,3,2) * coords_centered(3,r) * coords_centered(2,r) +   &
-                                                       0.5_cd*Cijk(s,3,3) * coords_centered(3,r) * coords_centered(3,r)
+                   aS%coords(s,r)   = aS%coords(s,r) + 0.5_cd*Cijk(s,1,1) * coords_original(1,r) * coords_original(1,r) +   &
+                                                       0.5_cd*Cijk(s,1,2) * coords_original(1,r) * coords_original(2,r) +   &
+                                                       0.5_cd*Cijk(s,1,3) * coords_original(1,r) * coords_original(3,r) +   &
+                                                       0.5_cd*Cijk(s,2,1) * coords_original(2,r) * coords_original(1,r) +   &
+                                                       0.5_cd*Cijk(s,2,2) * coords_original(2,r) * coords_original(2,r) +   &
+                                                       0.5_cd*Cijk(s,2,3) * coords_original(2,r) * coords_original(3,r) +   &
+                                                       0.5_cd*Cijk(s,3,1) * coords_original(3,r) * coords_original(1,r) +   &
+                                                       0.5_cd*Cijk(s,3,2) * coords_original(3,r) * coords_original(2,r) +   &
+                                                       0.5_cd*Cijk(s,3,3) * coords_original(3,r) * coords_original(3,r)
                 enddo
             enddo
 
@@ -479,7 +471,6 @@ subroutine numerical_check_Dijmkln(pkim,aS)
     enddo
 
     aS%coords = coords_original
-    deallocate(coords_centered)
     deallocate(coords_original)
 
 end subroutine numerical_check_Dijmkln
@@ -496,10 +487,9 @@ subroutine numerical_check_Tijm(pkim,aS)
     type(Atomistic),intent(inout) :: aS
 
     ! Local variables
-    real(c_double), allocatable            :: coords_centered(:,:),coords_original(:,:)
+    real(c_double), allocatable            :: coords_original(:,:)
     integer(c_int)                         :: p,q,r,s,i,j,m,indx(3),nParts
     real(c_double)                         :: energy_plus,energy_neg,eps
-    real(c_double), dimension(DIM)         :: shift
     real(c_double), dimension(DIM,DIM,DIM) :: Cijk, Eijk
 
     ! Set the process flags in the kim api to 0, as we do not need them
@@ -508,18 +498,10 @@ subroutine numerical_check_Tijm(pkim,aS)
 
     nParts = aS%numParticles
 
-    allocate(coords_centered(DIM,nParts))
     allocate(coords_original(DIM,nParts))
 
     coords_original = aS%coords
-    coords_centered= aS%coords
     eps             = 5.e-3
-
-    shift(:) = coords_original(:,1)
-    do p=1,nParts
-        coords_centered(:,p) = coords_centered(:,p) - shift(:)
-    enddo
-
 
     do q=1,18
         energy_plus = 0._cd
@@ -529,7 +511,7 @@ subroutine numerical_check_Tijm(pkim,aS)
         i = indx(1); j = indx(2); m = indx(3)
 
         do p=1,2
-            aS%coords = coords_centered
+            aS%coords = coords_original
             Eijk = 0._cd
             Cijk = 0._cd
 
@@ -554,15 +536,15 @@ subroutine numerical_check_Tijm(pkim,aS)
         
             do r=1,nParts
                 do s=1,3
-                   aS%coords(s,r)   = aS%coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_centered(1,r) * coords_centered(1,r) +   &
-                                                       0.5d0*Cijk(s,1,2) * coords_centered(1,r) * coords_centered(2,r) +   &
-                                                       0.5d0*Cijk(s,1,3) * coords_centered(1,r) * coords_centered(3,r) +   &
-                                                       0.5d0*Cijk(s,2,1) * coords_centered(2,r) * coords_centered(1,r) +   &
-                                                       0.5d0*Cijk(s,2,2) * coords_centered(2,r) * coords_centered(2,r) +   &
-                                                       0.5d0*Cijk(s,2,3) * coords_centered(2,r) * coords_centered(3,r) +   &
-                                                       0.5d0*Cijk(s,3,1) * coords_centered(3,r) * coords_centered(1,r) +   &
-                                                       0.5d0*Cijk(s,3,2) * coords_centered(3,r) * coords_centered(2,r) +   &
-                                                       0.5d0*Cijk(s,3,3) * coords_centered(3,r) * coords_centered(3,r)
+                   aS%coords(s,r)   = aS%coords(s,r) + 0.5d0*Cijk(s,1,1) * coords_original(1,r) * coords_original(1,r) +   &
+                                                       0.5d0*Cijk(s,1,2) * coords_original(1,r) * coords_original(2,r) +   &
+                                                       0.5d0*Cijk(s,1,3) * coords_original(1,r) * coords_original(3,r) +   &
+                                                       0.5d0*Cijk(s,2,1) * coords_original(2,r) * coords_original(1,r) +   &
+                                                       0.5d0*Cijk(s,2,2) * coords_original(2,r) * coords_original(2,r) +   &
+                                                       0.5d0*Cijk(s,2,3) * coords_original(2,r) * coords_original(3,r) +   &
+                                                       0.5d0*Cijk(s,3,1) * coords_original(3,r) * coords_original(1,r) +   &
+                                                       0.5d0*Cijk(s,3,2) * coords_original(3,r) * coords_original(2,r) +   &
+                                                       0.5d0*Cijk(s,3,3) * coords_original(3,r) * coords_original(3,r)
                 enddo
             enddo
 
@@ -582,7 +564,7 @@ subroutine numerical_check_Tijm(pkim,aS)
 
     aS%coords = coords_original
 
-    deallocate(coords_centered)
+    deallocate(coords_original)
 
 
 end subroutine numerical_check_Tijm

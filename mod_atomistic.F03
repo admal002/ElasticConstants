@@ -71,7 +71,7 @@ module mod_atomistic
         pA%fsgeType%Eijkln = pA%fsgeType%Eijkln - deidr*tensor_prod(dx,dx,dx,dx,R3)/(r**3)
         pA%fsgeType%Cijkl = pA%fsgeType%Cijkl - deidr * tensor_prod(dx,dx,dx,dx)/(r**3)
         pA%fsgeType%Dijmkln = pA%fsgeType%Dijmkln - deidr * tensor_prod(dx,dx,R3,dx,dx,R3)/(r**3)
-        pA%fsgeType%Dijmkln = pA%fsgeType%Dijmkln + deidr * operatorT( tensor_prod(dx,dx,R3,R3)/(2._cd*r) )
+        pA%fsgeType%Dijmkln = pA%fsgeType%Dijmkln + deidr * tensorG_dot_tensorG(tensorG(dx,R3)) / r
 
         process_dedr = KIM_STATUS_OK
         return
@@ -114,93 +114,54 @@ module mod_atomistic
         return
         end function process_d2edr2
 
-    function operatorT(tensor4)
-    implicit none
+        function tensorG(dx,R3)
+        implicit none
 
-    ! Passed variables
-    real(c_double) :: operatorT(DIM,DIM,DIM,DIM,DIM,DIM)
-    real(c_double),intent(in) :: tensor4(DIM,DIM,DIM,DIM)
+        real(c_double) ::tensorG(DIM,DIM,DIM,DIM)
+        real(c_double), intent(in) :: dx(DIM), R3(DIM)
+        integer :: p,i,j,m
 
-    ! Local variables
-    integer(c_int) :: i,j,m,k,l,n
+        tensorG = 0._cd
 
-    operatorT = 0._cd
-    do n=1,DIM
-       do l=1,DIM
-           do k=1,DIM
-               do m=1,DIM
-                   do j=1,DIM
-                       do i=1,DIM
-                           if (i .eq. k) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) + tensor4(l,m,j,n) &
-                                                                           + tensor4(j,n,l,m) &
-                                                                           + tensor4(j,l,m,n) &
-                                                                           + tensor4(m,n,j,l)
-                           endif
+        do m=1,DIM
+            do j=1,DIM
+                do i=1,DIM
+                    do p=1,DIM
+                        if (p .eq. i) tensorG(p,i,j,m) = tensorG(p,i,j,m) + dx(j)*R3(m) + dx(m)*R3(j)
+                        if (p .eq. j) tensorG(p,i,j,m) = tensorG(p,i,j,m) + dx(i)*R3(m) + dx(m)*R3(i)
+                        if (p .eq. m) tensorG(p,i,j,m) = tensorG(p,i,j,m) - dx(i)*R3(j) - dx(j)*R3(i)
+                    enddo
+                enddo
+            enddo
+        enddo
+        tensorG = 0.5_cd * tensorG
+        end function tensorG
 
-                           if (i .eq. l) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) + tensor4(j,k,m,n) &
-                                                                           + tensor4(j,n,k,m) &
-                                                                           + tensor4(k,m,j,n) &
-                                                                           + tensor4(m,n,j,k)
-                           endif
+        function tensorG_dot_tensorG(tensorG)
+        implicit none
 
-                           if (i .eq. n) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) - tensor4(j,k,l,m) &
-                                                                           - tensor4(j,l,k,m) &
-                                                                           - tensor4(k,m,j,l) &
-                                                                           - tensor4(l,m,j,k)
-                           endif
+        real(c_double) ::tensorG_dot_tensorG(DIM,DIM,DIM,DIM,DIM,DIM)
+        real(c_double), intent(in) :: tensorG(DIM,DIM,DIM,DIM)
+        integer :: i,j,m,k,l,n,p
 
-                           if (j .eq. k) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) + tensor4(l,m,i,n) &
-                                                                           + tensor4(i,n,l,m) &
-                                                                           + tensor4(i,l,m,n) &
-                                                                           + tensor4(m,n,i,l)
-                           endif
-
-                           if (j .eq. l) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) + tensor4(i,k,m,n) &
-                                                                           + tensor4(i,n,k,m) &
-                                                                           + tensor4(k,m,i,n) &
-                                                                           + tensor4(m,n,i,k)
-                           endif
-
-                           if (j .eq. n) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) - tensor4(i,k,l,m) &
-                                                                           - tensor4(i,l,k,m) &
-                                                                           - tensor4(k,m,i,l) &
-                                                                           - tensor4(l,m,i,k)
-                           endif
-
-                           if (m .eq. k) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) - tensor4(i,l,j,n) &
-                                                                           - tensor4(i,n,j,l) &
-                                                                           - tensor4(j,l,i,n) &
-                                                                           - tensor4(j,n,i,l)
-                           endif
-                           if (m .eq. l) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) - tensor4(i,k,j,n) &
-                                                                           - tensor4(i,n,j,k) &
-                                                                           - tensor4(j,k,i,n) &
-                                                                           - tensor4(j,n,i,k)
-                           endif
-                           if (m .eq. n) then
-                               operatorT(i,j,m,k,l,n) = operatorT(i,j,m,k,l,n) + tensor4(i,k,j,l) &
-                                                                           + tensor4(i,l,j,k) &
-                                                                           + tensor4(j,k,i,l) &
-                                                                           + tensor4(j,l,i,k)
-                           endif
-
-                       enddo
-                   enddo
-               enddo
-           enddo
-       enddo
-    enddo
-
-    operatorT = 0.5_cd * operatorT
-    end function operatorT
+        tensorG_dot_tensorG = 0._cd
+        do i = 1,DIM
+            do j = 1,DIM
+                do m = 1,DIM
+                    do k = 1,DIM
+                        do l = 1,DIM
+                            do n = 1,DIM
+                                do p = 1,DIM
+                                    tensorG_dot_tensorG(i,j,m,k,l,n) = tensorG_dot_tensorG(i,j,m,k,l,n) + &
+                                                                        tensorG(p,i,j,m) * tensorG(p,k,l,n)
+                                enddo
+                            enddo
+                        enddo
+                    enddo
+                enddo
+            enddo
+        enddo
+        end function tensorG_dot_tensorG
 
         subroutine constructNeighList(aS)
             implicit none
