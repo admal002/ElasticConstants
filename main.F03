@@ -131,6 +131,8 @@ program main
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    ! Rotate the system
+    call rotate(atomisticSystem%coords,numParticles)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! We are now ready to compute
@@ -192,6 +194,29 @@ program main
     100 stop
 
 end program main
+
+subroutine rotate(coords,np)
+    use mod_global
+    implicit none
+    integer(c_int),intent(in) :: np
+    real(c_double) :: coords(DIM,np),coords_old(DIM,np)
+    ! Edge
+    !real(c_double),parameter :: R(DIM,DIM) = reshape( (/1._cd/sqrt(3._cd),-1._cd/sqrt(2._cd),-1._cd/sqrt(6._cd), &
+    !                                                    1._cd/sqrt(3._cd),1._cd/sqrt(2._cd) ,-1._cd/sqrt(6._cd), &
+    !                                                    1._cd/sqrt(3._cd),0._cd,2._cd/sqrt(6._cd)/),(/3,3/) )
+
+    ! Screw
+    real(c_double),parameter :: R(DIM,DIM) = reshape( (/1._cd/sqrt(6._cd),-1._cd/sqrt(2._cd),1._cd/sqrt(3._cd), &
+                                                        1._cd/sqrt(6._cd),1._cd/sqrt(2._cd) ,1._cd/sqrt(3._cd), &
+                                                        -2._cd/sqrt(6._cd),0._cd,1._cd/sqrt(3._cd)/),(/3,3/) )
+
+    integer i
+    coords_old = coords
+    do i=1,np
+        coords(:,i) = matmul(R,coords_old(:,i))
+    enddo
+    return
+end subroutine rotate
 
 subroutine numerical_check_Cijkl(pkim,aS)
     use mod_global
