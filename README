@@ -1,14 +1,12 @@
-Author: Nikhil Chandra Admal, University of California Los Angeles (admal002 |AT| ucla DOT edu)
-Date  : 08/21/2015
+Author: Nikhil Chandra Admal and Giacomo Po, University of California Los Angeles (admal002 |AT| ucla DOT edu)
+Date  : 05/12/2016
 Ver   : 1.0
 
-This test driver (TD) computes the first strain gradient elasticity (SGE) tensor for simple crystals at an equilibrium lattice spacing dictated by the model. The current version (v1.0) is limited to fcc, bcc and hcp crystal structures. The TD computes the SGE tensor for a crystal with equilibrium lattice spacing corresponding to the model coupled to the test using this TD. In other words, this TD depends on a test that computes equilibrium lattice spacing.
+This test driver (TD) computes the first strain gradient elasticity (SGE) tensor for simple crystals at an equilibrium lattice spacing dictated by the model, and at 0 K. The current version (v1.0) is limited to fcc, bcc, diamond and hcp crystal structures. The TD computes the SGE tensors for a crystal with equilibrium lattice spacing corresponding to the model coupled to the test using this TD. In other words, the TD initially computes the equilibrium lattice spacing, and then computes the SGE tensors.
+
+The SGE tensors are computed analytically and numerically.
 
 The user specifies the following variables through stdin using a Jinja template file named 'pipeline.stdin.tpl' contained in the directory of a Test which uses this TD (the sequence in which they are specified must be the same as below):
-
-- 'path'
-Type: string
-Description: The path to the TD executable.
 
 - 'testname'
 Type: string
@@ -18,42 +16,54 @@ Description: The name of the test using this TD.
 Type: string
 Description: The name of the model coupled to a test using this TD
 
-- 'crystalstructure'
-Type: string
-Description: The type of cubic lattice. In the current version, this string is either 'fcc' or 'bcc'.
-
-- 'dependenttestname'
-Type: string
-Description: The name of the test that computes the equilibrium lattice spacing for the given crystal structure and model. 
-
-- 'latticespacing'
-Type: double
-Description: The equilibrium lattice spacing obtained from the results of the test 'dependenttestname' coupled to the model 'modelname'.
-
 - 'Species'
 Type: scalar
 Description: The species of interest.
 
+- 'crystalstructure'
+Type: string
+Description: The type of lattice. In the current version, this string is either 'fcc', 'bcc', 'diamond' or 'hcp'.
+
+- 'Analytical/Numerical'
+Type: integer
+Description: 1 indicates analytical computation using the SGE tensor expressions derived in [2], and 0 indicates numerical computation by perturbing the lattice. 
+
 ************************ Background on strain gradient elasticity*********************
 
-The first strain gradient elasticity tensor D_ijmkln is a sixth-order tensor defined as the second derivative of the strain energy density with respect to strain gradient. D_ijmkln has the following symmetries:
+The first strain gradient elasticity tensors consist of 
+
+1. The sixth-order tensor D_ijmkln defined as the second derivative of the strain energy density with respect to the Lagrangian strain gradient tensor E, 
+2. The fifth-order tensor EE_ijkln defined as the mixed second deriavtive of the strain energy density with respect to the Lagrangian strain E and its gradient dE, 
+3. The fourth-order elasticity tensor C_ijkl defined as the second derivative of the strain energy density with respect to the Lagrangian strain E, 
+4. The third-order couple stress tensor \tau_ijk, defined as the derivative of the strain energy density with respect to the Lagrangian strain gradient dE, and
+5. The second-order second Piola--Kirchhoff stress tensor \sigma_ij defined as the derivative of the strain energy density with respect to the Lagrangian strain E.
+
+The TD outputs the tensors C, D, EE and \tau. D_ijmkln has the following symmetries:
 
 D_ijmkln = D_jimkln,    D_ijmkln = D_ijmlkn,    D_ijmkln = D_klnijm.
 
-Due to the above described symmetries, D consists of 171 independent constants.
+Due to the above described symmetries, D consists of 171 independent constants. Similarly, EE, C and T consist of 108, 21, and 18 independent constants respectively. Under material symmetries, the number of independent constants is much smaller. For example, D has 11 and 22 independent elastic constants for cubic and hexagonal crystals respectively. The TD outputs the following:
 
-As suggested in [1], we use the following Voigt-like representations for the strain gradient elasticity tensor D, and the third-order strain gradient tensor E. D is represented as a 18x18 symmetric matrix d, and E (which has 18 independent variables due to the symmetry E_ijm = E_jim) is presented as a 18x1 column matrix e. The representation e is defined as
+1. 11 and 22 independent elastic constants of D for cubic and hexagonal crystals respectively.
+2. EE and T are always outputted as 108 and 18 elastic constants. In other words, material symmetries are not considered for these tensors.
+3. 3 and 4 independent elastic constants of C for cubic and hexagonal crystals respectively.
 
-     e = (E_111    E_221    2 E_122    E_331    2 E_133
-          E_222    E_112    2 E_121    E_332    2 E_233        ------------> (1)
-          E_333    E_113    2 E_131    E_223    2 E_232    
-          2 E_123  2 E_132  2 E_231)^T
 
-Using (1), any component of D can be obtained from d. For instance, D_112123 is given by
+As suggested in [1], we use the following Voigt-like representations for the strain gradient elasticity tensor D, and the third-order Lagraingian strain E. 
+
+The strain and its gradient are represented as a 18x1 matrix de, given by
+
+     de = (dE_111   dE_221    2 dE_122    dE_331    2 dE_133
+          dE_222    dE_112    2 dE_121    dE_332    2 dE_233        ------------> (1)
+          dE_333    dE_113    2 dE_131    dE_223    2 dE_232    
+          2 dE_123  2 dE_132  2 dE_231)^T
+
+
+D is represented as a 18x18 symmetric matrix d. Using (1), any component of D can be obtained from de. For instance, D_112123 is given by
 
 D_112123 = d(7,16) 
 
-since the triads 112 and 123 occur at 7th and 16th position in the representation e defined in (1). 
+since the triads 112 and 123 occur at 7th and 16th position in the representation de defined in (1). 
 
 Cubic crystals:
 --------------
@@ -76,7 +86,7 @@ where A9 and J2 are 5x5 and 3x3 symmetric matrices respectively given by
 
 where {a1,...,a9,j1,j2}  are the 11 independent constants of the cubic material.  From (1) and (2) it follows that the 11 independent elastic components of D for a cubic material are given by 
 
-d(1,1), d(2,2), d(3,3), d(1,2), d(1,3), d(2,3), d(2,4), d(2,5), d(3,4), d(16,16), d(16,17).
+d(1,1), d(1,2), d(1,3), d(2,2), d(2,3), d(2,4), d(2,5), d(3,3), d(3,5), d(16,16), d(16,17).
 
 Hexagonal crystals:
 ------------------

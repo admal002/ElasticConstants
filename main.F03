@@ -53,6 +53,8 @@ program main
         numBasisAtoms = 1
     case('bcc')
         numBasisAtoms = 1
+    case('hex')
+        numBasisAtoms = 1
     case('hcp')
         numBasisAtoms = 2
     case('diamond')
@@ -91,7 +93,10 @@ program main
     case('hcp')
         crystalType%LatticeType = constructHCPLattice(rcutoff/2._cd,rcutoff/2._cd)
         crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
-        crystalType%basisAtomsCoords(:,2) = (/2._cd/3._cd,1._cd/3._cd,0.5_cd/)*rcutoff/2._cd
+        crystalType%basisAtomsCoords(:,2) = (/0.5_cd,1._cd/(2._cd*sqrt(3._cd)),0.5_cd/)*rcutoff/2._cd
+    case('hex')
+        crystalType%LatticeType = constructHCPLattice(rcutoff/2._cd,rcutoff/2._cd)
+        crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
     case('diamond')
         crystalType%LatticeType = constructFCCLattice(rcutoff/2._cd)
         crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)

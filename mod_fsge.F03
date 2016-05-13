@@ -27,9 +27,11 @@ module mod_Fsge
             implicit none
             type(Fsge),intent(inout) :: fsgeType
             character(len=*),intent(in) :: crystalStructure
+
+            integer :: i,j,m
+
             if (trim(crystalStructure) .eq. 'fcc' .or. &
-                trim(crystalStructure) .eq. 'bcc' .or. &
-                trim(crystalStructure) .eq. 'diamond') then
+                trim(crystalStructure) .eq. 'bcc') then
                 allocate(fsgeType%IndComponentsC(3,2))
                 fsgeType%IndComponentsC(1,:) = (/1,1/)
                 fsgeType%IndComponentsC(2,:) = (/1,2/)
@@ -41,7 +43,7 @@ module mod_Fsge
                 fsgeType%IndComponentsD(7,:)  = (/2,5/); fsgeType%IndComponentsD(8,:)  = (/3,3/)
                 fsgeType%IndComponentsD(9,:)  = (/3,5/); fsgeType%IndComponentsD(10,:) = (/16,16/)
                 fsgeType%IndComponentsD(11,:) = (/16,17/)
-            elseif (trim(crystalStructure) .eq. 'hcp') then
+            elseif (trim(crystalStructure) .eq. 'hex') then
                 allocate(fsgeType%IndComponentsC(5,2))
                 fsgeType%IndComponentsC(1,:) = (/1,1/)
                 fsgeType%IndComponentsC(2,:) = (/1,2/)
@@ -60,6 +62,24 @@ module mod_Fsge
                 fsgeType%IndComponentsD(17,:) = (/12,13/); fsgeType%IndComponentsD(18,:) = (/13,13/)
                 fsgeType%IndComponentsD(19,:) = (/16,16/); fsgeType%IndComponentsD(20,:) = (/16,17/)
                 fsgeType%IndComponentsD(21,:) = (/17,17/); fsgeType%IndComponentsD(22,:) = (/17,18/)
+            else
+                allocate(fsgeType%IndComponentsC(21,2))
+                m=1
+                do i=1,6
+                    do j=i,6
+                        fsgeType%IndComponentsC(m,:) = (/i,j/)
+                        m=m+1
+                    enddo
+                enddo
+
+                allocate(fsgeType%IndComponentsD(171,2))
+                m=1
+                do i=1,18
+                    do j=i,18
+                        fsgeType%IndComponentsD(m,:) = (/i,j/)
+                        m=m+1
+                    enddo
+                enddo
             endif
         end subroutine allocateIndComponents
 
@@ -146,11 +166,21 @@ module mod_Fsge
 
             cunit = GetFreeUnit()
             open(unit=cunit,file='output/Cijkl.out',status='replace',position='append')
-
             do i=1,size(fsgeType%IndComponentsC,1)
                 cpntsC(1:2) = voigtStrain(fsgeType%IndComponentsC(i,1))
                 cpntsC(3:4) = voigtStrain(fsgeType%IndComponentsC(i,2))
                 write(cunit,*) fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
+            enddo
+            close(cunit)
+
+            cunit = GetFreeUnit()
+            open(unit=cunit,file='output/Cijkl_ext.out',status='replace',position='append')
+            do i=1,6
+                cpntsC(1:2) = voigtStrain(i)
+                do j=i,6
+                    cpntsC(3:4) = voigtStrain(j)
+                    write(cunit,*) fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
+                enddo
             enddo
             close(cunit)
 
@@ -163,6 +193,16 @@ module mod_Fsge
             enddo
             close(dunit)
 
+            dunit = GetFreeUnit()
+            open(unit=dunit,file='output/Dijmkln_ext.out',status='replace',position='append')
+            do i=1,18
+                cpntsD(1:3) = voigtStrainGradient(i)
+                do j=i,18
+                    cpntsD(4:6) = voigtStrainGradient(j)
+                    write(dunit,*) fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
+                enddo
+            enddo
+            close(dunit)
 
             tunit = GetFreeUnit()
             open(unit=tunit,file='output/Tijm.out',status='replace',position='append')

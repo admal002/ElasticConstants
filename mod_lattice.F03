@@ -51,8 +51,14 @@ module mod_lattice
             ! Local variables
             real(c_double), dimension(DIM,DIM) :: latVec
             
+            ! A1 passes through atom
             latVec(:,1) = latticeSpacing*(/1.0_cd, 0.0_cd, 0.0_cd/)
             latVec(:,2) = latticeSpacing*(/-0.5_cd, 0.5_cd*sqrt(3._cd), 0.0_cd/)
+
+            ! A2 passes through atom
+            !latVec(:,1) = latticeSpacing*(/0.5_cd*sqrt(3._cd), -0.5_cd, 0.0_cd/)
+            !latVec(:,2) = latticeSpacing*(/0.0_cd, 1.0_cd, 0.0_cd/)
+
             latVec(:,3) = latticeSpacing_z*(/0.0_cd, 0.0_cd, 1.0_cd/)
 
             constructHCPLattice%latVec = latVec

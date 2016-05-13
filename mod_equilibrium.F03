@@ -39,7 +39,7 @@ module mod_equilibrium
             ! update the lattice spacing based on crystalStructure
             case('fcc' , 'bcc' , 'diamond')
                 ndim=1
-            case('hcp')
+            case('hcp', 'hex')
                 ndim=2
             case default
                 print '("mod_equilibrium: Crystal structure not supported")'
@@ -111,7 +111,7 @@ module mod_equilibrium
                 case('fcc'  , 'bcc', 'diamond')
                     crystalType = scaleCrystal(cT,2._cd,2._cd,2._cd)
                     p(dimn+1,:) = 2._cd*p(1,:)
-                case('hcp')
+                case('hcp','hex')
                     select case(dimn)
                     case (1)
                         crystalType = scaleCrystal(cT,2._cd,2._cd,1._cd)
@@ -142,7 +142,7 @@ module mod_equilibrium
             select case(trim(cS))
             case('fcc' , 'bcc' , 'diamond')
                 equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,1)/p0(1),p(1,1)/p0(1))
-            case('hcp')
+            case('hcp','hex')
                 equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,1)/p0(1),p(1,2)/p0(2))
             end select
 
@@ -171,9 +171,12 @@ module mod_equilibrium
             case('hcp')
                 crystalType%LatticeType = constructHCPLattice(latticeSpacing(1),latticeSpacing(2))
                 crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
-                crystalType%basisAtomsCoords(:,2) = (/latticeSpacing(1)*(2._cd/3._cd),  &
-                                            latticeSpacing(1)*(1._cd/3._cd),   &
+                crystalType%basisAtomsCoords(:,2) = (/latticeSpacing(1)*0.5_cd,  &
+                                            latticeSpacing(1)*(0.5_cd/sqrt(3._cd)),   &
                                             latticeSpacing(2)*0.5_cd/) 
+            case('hex')
+                crystalType%LatticeType = constructHCPLattice(latticeSpacing(1),latticeSpacing(2))
+                crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
             case('diamond')
                 crystalType%LatticeType = constructFCCLattice(latticeSpacing(1))
                 crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
