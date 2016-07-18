@@ -13,7 +13,7 @@
 # If applicable, add the following below this CDDL HEADER, with the fields
 # enclosed by brackets "[]" replaced with your own identifying information:
 #
-# Portions Copyright (c) [yyyy] [name of copyright owner]. All rights reserved.
+# Portions Copyright (c) [2016] [Nikhil Chandra Admal and Giacomo Po]. All rights reserved.
 #
 # CDDL HEADER END
 #
@@ -26,9 +26,6 @@
 #    Nikhil Chandra Admal
 #
 
-#
-# Release: This file is part of the kim-api-v1.7.1 package.
-#
 
 ifneq (clean,$(MAKECMDGOALS))
   ifeq ($(wildcard ../Makefile.KIM_Config_Helper),)
@@ -66,7 +63,13 @@ SRC = mod_global.F03  \
 
 FOBJ = mod_global.o mod_fsge.o mod_matrix.o mod_atomistic.o mod_lattice.o mod_crystal.o mod_kim.o mod_equilibrium.o main.o
 
-runner : $(FOBJ)
+TEST_NAME := runner
+
+all: $(TEST_NAME)
+
+$(TEST_NAME): $(FOBJ)
+	$(LD) $(LDFLAGS) $(FOBJ) $(LDLIBS) $(OUTPUTINFLAG) $@
+
 main.o : main.F03 mod_lattice.o mod_crystal.o mod_equilibrium.o mod_global.o
 mod_global.o : mod_global.F03
 mod_matrix.o : mod_matrix.F03 mod_global.o
@@ -78,14 +81,6 @@ mod_equilibrium.o : mod_equilibrium.F03 mod_kim.o mod_crystal.o mod_atomistic.o 
 mod_fsge : mod_fsge.F03 mod_global.o
 
 .PHONY: all clean
-
-TEST_NAME := runner
-
-all: $(TEST_NAME)
-
-$(TEST_NAME): $(FOBJ)
-	$(LD) $(LDFLAGS) $(FOBJ) $(LDLIBS) $(OUTPUTINFLAG) $@
-	rm -f *.o kim.log *.mod
 
 %.o:%.F03
 	$(FC) $(INCLUDES) $(FFLAGS) $(OBJONLYFLAG) $<

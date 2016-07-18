@@ -2,7 +2,7 @@
 #define THIS_FILE_NAME __FILE__
 module mod_equilibrium
     use mod_global
-    use mod_crystal, only : Crystal,constructGlobalCrystal,scaleCrystal, allocateCrystal
+    use mod_crystal, only : Crystal,constructGlobalCrystal,scaleCrystal,allocateCrystal,destroyCrystal
     use mod_atomistic
     use mod_lattice, only : constructFCCLattice, constructBCCLattice, constructHCPLattice
     use mod_kim
@@ -70,7 +70,7 @@ module mod_equilibrium
             call constructGlobalCrystal(numCellsPerSide,cT,atomisticSystem%coords,  &
                                         atomisticSystem%particleSpecies)
             atomisticSystem%nbc = nbc
-            atomisticSystem%numContributingParticles = 1
+            atomisticSystem%numContributingParticles = size(cT%basisAtomsCoords,2)
             atomisticSystem%boxSideLengths  = 1000._cd
             atomisticSystem%numSpecies = cT%numSpecies
             if (analytical .eq. 1) then 
@@ -93,13 +93,20 @@ module mod_equilibrium
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
             ! Start relaxation using the simplex method
 
+            write(*,*) 'Relaxing the crystal to its equilibrium lattice constant'
+            write(*,*) '--------------------------------------------------------'
+            if(trim(cS) .eq. 'fcc' .or. trim(cS) .eq. 'bcc' .or. trim(cS) .eq.  'diamond') then
+                write(*,'(A20,2x,A20)') 'Lattice spacing','energy'
+            elseif (trim(cS) .eq. 'hcp' .or. trim(cS) .eq. 'hex') then
+                write(*,'(A20,2x,A20,2x,A10)') 'Lattice spacing a','Lattice spacing c','energy'
+            endif
             ! Set the process flags in the kim api to 0, as we do not need them
             if (atomisticSystem%processdEdrFlag .eq. 1)   call setCompute_kim(pkim,'process_dEdr',0)
             if (atomisticSystem%processd2Edr2Flag .eq. 1) call setCompute_kim(pkim,'process_d2Edr2',0)
 
             ! Calculate energy for initial crystal
             call constructNeighList(atomisticSystem)
-            p(1,:) = atomisticSystem%cutoff/2._cd
+            p(1,:) = atomisticSystem%cutoff/3._cd
             p0 = p(1,:)
             pA => atomisticSystem
             call compute_kim(pkim)
@@ -151,6 +158,7 @@ module mod_equilibrium
             deallocate(p0)
             call destroy_kim(pkim)
             call destroyAtomistic(atomisticSystem)
+            call destroyCrystal(crystalType)
 
         end function equilibriumCrystal
 
@@ -199,6 +207,14 @@ module mod_equilibrium
             call compute_kim(pkim)
             nullify(pA)
 
+            if(trim(crystalStructure) .eq. 'fcc' .or.       &
+               trim(crystalStructure) .eq. 'bcc' .or.       &
+               trim(crystalStructure) .eq.  'diamond') then
+                write(*,'(f20.5,2x,f20.5,2x,f20.10)') latticeSpacing(1:1),atomisticSystem%energy
+            elseif (trim(crystalStructure) .eq. 'hcp' .or.  &
+                    trim(crystalStructure) .eq. 'hex') then
+                write(*,'(f20.5,2x,f20.5,2x,f20.10)') latticeSpacing(1:2),atomisticSystem%energy
+            endif
             funk = atomisticSystem%energy
         end function funk
 
@@ -206,7 +222,7 @@ module mod_equilibrium
             implicit none
             INTEGER(c_int) iter,mp,ndim,np,NMAX,ITMAX
             REAL(c_double) ftol,p(mp,np),y(mp),TINY
-            PARAMETER (NMAX=20,ITMAX=10000,TINY=1.e-10) 
+            PARAMETER (NMAX=20,ITMAX=1000,TINY=1.e-10) 
             INTEGER(c_int) i,ihi,ilo,inhi,j,m,n
             REAL(c_double) rtol,sum,swap,ysave,ytry,psum(NMAX)
 
@@ -249,6 +265,8 @@ module mod_equilibrium
             endif
             if (iter.ge.ITMAX) then
                 print '("ITMAX exceeded in amoeba")'
+                print '("Check convergence. If there seems to be convergence, then increase ITMAX")'
+                stop
             endif
             iter=iter+2
             ytry=amotry(p,y,psum,mp,np,ndim,ihi,-1._cd) 

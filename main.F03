@@ -93,9 +93,12 @@ program main
     case('hcp')
         crystalType%LatticeType = constructHCPLattice(rcutoff/2._cd,rcutoff/2._cd)
         crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
-        crystalType%basisAtomsCoords(:,2) = (/0.5_cd,1._cd/(2._cd*sqrt(3._cd)),0.5_cd/)*rcutoff/2._cd
+        crystalType%basisAtomsCoords(:,2) =                     &
+            (2._cd/3._cd)*crystalType%LatticeType%latVec(:,1) + &
+            (1._cd/3._cd)*crystalType%LatticeType%latVec(:,2) + &
+            (1._cd/2._cd)*crystalType%LatticeType%latVec(:,3)
     case('hex')
-        crystalType%LatticeType = constructHCPLattice(rcutoff/2._cd,rcutoff/2._cd)
+        crystalType%LatticeType = constructHCPLattice(rcutoff/3._cd,rcutoff/3._cd)
         crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
     case('diamond')
         crystalType%LatticeType = constructFCCLattice(rcutoff/2._cd)
@@ -184,11 +187,17 @@ program main
         call writeFsgeMaterial(atomisticSystem%fsgeTypeNumerical)
     endif
 
-    call write_results_kim
+    if (analytical .eq. 1) then
+        call write_results_kim(species,crystalStructure,crystalTypeRelaxed,atomisticSystem%fsgeType)
+    else
+        call write_results_kim(species,crystalStructure,crystalTypeRelaxed,atomisticSystem%fsgeTypeNumerical)
+    endif
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! We are done. Deallocate memory
 
+    call destroyCrystal(crystalType)
+    call destroyCrystal(crystalTypeRelaxed)
     call destroyAtomistic(atomisticSystem)
     call destroy_kim(pkim)
     nullify(patomisticSystem)

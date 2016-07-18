@@ -51,18 +51,19 @@ module mod_lattice
             ! Local variables
             real(c_double), dimension(DIM,DIM) :: latVec
             
-            ! A1 passes through atom
-            latVec(:,1) = latticeSpacing*(/1.0_cd, 0.0_cd, 0.0_cd/)
-            latVec(:,2) = latticeSpacing*(/-0.5_cd, 0.5_cd*sqrt(3._cd), 0.0_cd/)
-
             ! A2 passes through atom
-            !latVec(:,1) = latticeSpacing*(/0.5_cd*sqrt(3._cd), -0.5_cd, 0.0_cd/)
-            !latVec(:,2) = latticeSpacing*(/0.0_cd, 1.0_cd, 0.0_cd/)
+            latVec(:,1) = latticeSpacing*(/0.5_cd*sqrt(3._cd), -0.5_cd, 0.0_cd/)
+            latVec(:,2) = latticeSpacing*(/0.0_cd, 1.0_cd, 0.0_cd/)
 
             latVec(:,3) = latticeSpacing_z*(/0.0_cd, 0.0_cd, 1.0_cd/)
 
             constructHCPLattice%latVec = latVec
-            constructHCPLattice%latVol = sqrt(3._cd) * (latticeSpacing**2) * latticeSpacing_z/4._cd
+
+            ! Note that this is actually a hexagonal lattice
+            ! Therefore, there is a factor of 2 instead of 4 in the lattice
+            ! volume
+            constructHCPLattice%latVol = sqrt(3._cd) * (latticeSpacing**2) * latticeSpacing_z/2._cd
+
         end function constructHCPLattice
 
 end module mod_lattice

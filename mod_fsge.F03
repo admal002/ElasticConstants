@@ -48,8 +48,8 @@ module mod_Fsge
                 fsgeType%IndComponentsC(1,:) = (/1,1/)
                 fsgeType%IndComponentsC(2,:) = (/1,2/)
                 fsgeType%IndComponentsC(3,:) = (/1,3/)
-                fsgeType%IndComponentsC(4,:) = (/4,4/)
-                fsgeType%IndComponentsC(5,:) = (/6,6/)
+                fsgeType%IndComponentsC(4,:) = (/3,3/)
+                fsgeType%IndComponentsC(5,:) = (/5,5/)
                 allocate(fsgeType%IndComponentsD(22,2))
                 fsgeType%IndComponentsD(1,:)  = (/1,1/); fsgeType%IndComponentsD(2,:)  = (/6,6/)
                 fsgeType%IndComponentsD(3,:)  = (/6,7/); fsgeType%IndComponentsD(4,:)  = (/6,8/)
@@ -158,7 +158,7 @@ module mod_Fsge
             type(Fsge), intent(in) :: fsgeType
             ! Local variables
             integer(c_int)   :: cpntsC(4), cpntsD(6),cpntsT(3),cpntsE(5)
-            integer(c_int)   :: cunit,dunit,tunit,eunit,i,j
+            integer(c_int)   :: cunit,dunit,tunit,eunit,i,j,m,k,l,n
             integer,external :: GetFreeUnit
             character(len=1) :: cr
 
@@ -169,17 +169,19 @@ module mod_Fsge
             do i=1,size(fsgeType%IndComponentsC,1)
                 cpntsC(1:2) = voigtStrain(fsgeType%IndComponentsC(i,1))
                 cpntsC(3:4) = voigtStrain(fsgeType%IndComponentsC(i,2))
-                write(cunit,*) fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
+                write(cunit,*) cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4),fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
             enddo
             close(cunit)
 
             cunit = GetFreeUnit()
             open(unit=cunit,file='output/Cijkl_ext.out',status='replace',position='append')
-            do i=1,6
-                cpntsC(1:2) = voigtStrain(i)
-                do j=i,6
-                    cpntsC(3:4) = voigtStrain(j)
-                    write(cunit,*) fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
+            do i=1,DIM
+                do j=1,DIM
+                    do k=1,DIM
+                        do l=1,DIM
+                            write(cunit,*) i,j,k,l,fsgeType%Cijkl(i,j,k,l)
+                        enddo
+                    enddo
                 enddo
             enddo
             close(cunit)
@@ -189,7 +191,8 @@ module mod_Fsge
             do i=1,size(fsgeType%IndComponentsD,1)
                 cpntsD(1:3) = voigtStrainGradient(fsgeType%IndComponentsD(i,1))
                 cpntsD(4:6) = voigtStrainGradient(fsgeType%IndComponentsD(i,2))
-                write(dunit,*) fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
+                write(dunit,*) cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6), &
+                        fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
             enddo
             close(dunit)
 
@@ -202,6 +205,19 @@ module mod_Fsge
                     write(dunit,*) fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
                 enddo
             enddo
+            !do i=1,DIM
+            !    do j=1,DIM
+            !        do m=1,DIM
+            !            do k=1,DIM
+            !                do l=1,DIM
+            !                    do n=1,DIM
+            !                        write(dunit,*) i,j,m,k,l,n,fsgeType%Dijmkln(i,j,m,k,l,n)
+            !                    enddo
+            !                enddo
+            !            enddo
+            !        enddo
+            !    enddo
+            !enddo
             close(dunit)
 
             tunit = GetFreeUnit()

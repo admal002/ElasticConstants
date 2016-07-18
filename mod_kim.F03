@@ -350,96 +350,201 @@ module mod_kim
             endif
         end subroutine destroy_kim
 
-        subroutine write_results_kim
+        subroutine write_results_kim(species,cS,cT,fsgeType)
+            use mod_fsge, only : voigtStrainGradient,voigtStrain,Fsge
+            use mod_crystal, only : Crystal
             implicit none
 
+            ! Passed variables
+            character(len=*),intent(in) :: cS
+            type(Crystal),intent(in)    :: cT
+            type(Fsge),intent(in)       :: fsgeType
+            character(len=2),intent(in) :: species
+
             ! Local variables
-            integer(c_int)             :: runit
-            integer,external           :: GetFreeUnit
-            character(len=1)           :: cr
+            integer(c_int)     :: runit,m,n,i
+            integer,external   :: GetFreeUnit
+            character(len=1)   :: cr
+            character(len=30)  :: cvalstr,dvalstr
+            character(len=2)   :: mstr,nstr
+            real(c_double)     :: a,c
+            integer(c_int)     :: cpntsD(6),cpntsC(4)
+            character(len=2000):: basisAtomsCoordsFractionString,   &
+                                  latticeConstantString,            &
+                                  crystalString,                    &
+                                  speciesString,                    &
+                                  CString,                        &
+                                  DString,&
+                                  propertyString,&
+                                  tempstr
 
             cr = char(10)
+
+            crystalString = '           "'  // trim(cS) //'"'  // cr
+
+            if (trim(cS) .eq. 'fcc') then
+                a = cT%LatticeType%latVec(2,1)*2._cd
+                write(basisAtomsCoordsFractionString,*) &
+                '            ['                                // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '            ]'                                // cr //  &
+                '            ['                                // cr //  &
+                '                0'                            // cr //  &
+                '                0.5'                          // cr //  &
+                '                0.5'                          // cr //  &
+                '            ]'                                // cr //  & 
+                '            ['                                // cr //  &
+                '                0.5 '                         // cr //  &
+                '                0 '                           // cr //  &
+                '                0.5'                          // cr //  &
+                '            ]'                                // cr //  &
+                '            ['                                // cr //  &
+                '                0.5'                          // cr //  &
+                '                0.5'                          // cr //  &
+                '                0'                            // cr //  &
+                '            ]'                                // cr
+
+                write(speciesString,*)                          &
+                '            "' // species //'"' //  cr  //     &
+                '            "' // species //'"' //  cr  //     &
+                '            "' // species //'"' //  cr  //     &
+                '            "' // species //'"' //  cr
+
+                write(propertyString,*) &
+                '    "property-id" "tag:staff@noreply.openkim.org,2016-05-24:property/'
+                propertyString = trim(adjustl(propertyString)) // &
+                'elastic-constants-first-strain-gradient-isothermal-cubic-crystal-npt"' // cr
+
+            elseif(trim(cS) .eq. 'bcc') then
+                a = cT%LatticeType%latVec(2,1)*2._cd
+                write(basisAtomsCoordsFractionString,*) &
+                '            ['                                // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '            ]'                                // cr //  &
+                '            ['                                // cr //  &
+                '                0.5'                          // cr //  &
+                '                0.5'                          // cr //  &
+                '                0.5'                          // cr //  &
+                '            ]'                                // cr
+
+                write(speciesString,*)                          &
+                '            "' // species //'"' //  cr  //     &
+                '            "' // species //'"' //  cr 
+
+                write(propertyString,*) &
+                '    "property-id" "tag:staff@noreply.openkim.org,2016-05-24:property/'
+                propertyString = trim(adjustl(propertyString)) // &
+                'elastic-constants-first-strain-gradient-isothermal-cubic-crystal-npt"' // cr
+
+            elseif(trim(cS) .eq. 'hex') then
+                c = cT%LatticeType%latVec(3,3)
+                write(basisAtomsCoordsFractionString,*) &
+                '            ['                                // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '                0'                            // cr //  &
+                '            ]'                                // cr
+
+                write(speciesString,*)                          &
+                '            "' // species //'"' //  cr
+
+                write(propertyString,*) &
+                '    "property-id" "tag:staff@noreply.openkim.org,2016-05-24:property/'
+                propertyString = trim(adjustl(propertyString)) // &
+                'elastic-constants-first-strain-gradient-isothermal-monoatomic-hexagonal-crystal-npt"' // cr
+            endif
+
+            write(tempstr,*) a
+            write(latticeConstantString,*) &
+            '    "a" {'                                       // cr //  &
+            '        "source-value" '//trim(adjustl(tempstr)) // cr //  &
+            '        "source-unit" "angstrom"'                // cr //  &
+            '    }'                                           // cr
+            if (trim(cS) .eq. 'hex' .or. trim(cS) .eq. 'hcp') then
+                write(tempstr,*) c
+                latticeConstantString = trim(latticeConstantString)     //  &
+                '    "c" {'                                       // cr //  &
+                '        "source-value" '//trim(adjustl(tempstr)) // cr //  &
+                '        "source-unit" "angstrom"'                // cr //  &
+                '    }'                                           // cr
+            endif
+
+
+            CString=''
+            do i=1,size(fsgeType%IndComponentsC,1)
+                m = fsgeType%IndComponentsC(i,1); write(mstr,'(i2)') m
+                n = fsgeType%IndComponentsC(i,2); write(nstr,'(i2)') n
+                cpntsC(1:2) = voigtStrain(m)
+                cpntsC(3:4) = voigtStrain(n)
+                write(cvalstr,*) fsgeType%Cijkl(cpntsC(1),cpntsC(2),cpntsC(3),cpntsC(4))
+                write(tempstr,*)&
+                '    "c' //trim(adjustL(mstr)) // trim(adjustl(nstr))   // '" {'  //  cr //  &
+                '    "source-value" '   //  trim(cvalstr)                         //  cr //  &
+                '    "source-unit"  "eV/angstrom^3"'                              //  cr //  &
+                '    }'                                                           //  cr
+                CString = trim(CString) // trim(tempstr)
+            enddo
+
+            DString=''
+            do i=1,size(fsgeType%IndComponentsD,1)
+                m = fsgeType%IndComponentsD(i,1); write(mstr,'(i2)') m
+                n = fsgeType%IndComponentsD(i,2); write(nstr,'(i2)') n
+                cpntsD(1:3) = voigtStrainGradient(m)
+                cpntsD(4:6) = voigtStrainGradient(n)
+                write(dvalstr,'(F20.8)') fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
+                write(tempstr,*) &
+                '    "d-' // trim(adjustl(mstr)) // '-' // trim(adjustl(nstr)) // '" {'  //  cr //   &
+                ' "source-value" '  //  trim(adjustl(dvalstr))                           //  cr //   &
+                '    "source-unit"  "eV/angstrom"'                                       //  cr //   &
+                '    }'                                                                  //  cr
+                DString = trim(Dstring) // trim(tempstr)
+            enddo
+
 
 
             ! Now write the results.edn file
             runit = GetFreeUnit()
             open(unit=runit,file='output/results.edn',status='replace')
             write(runit,*) &
-    '{'                               // cr //  &
-    '   "short-name" {'               // cr //  &
-    '       "source-value" ['         // cr //  &
-    '           "fcc"'                // cr //  &
-    '       ]'                        // cr //  &
-    '   }'                            // cr //  &
-    '    "a" {'                                    // cr //  &
-    '        "si-unit" "m"'                        // cr //  &
-    '        "source-unit" "angstrom"'             // cr //  &
-    '        "si-value" 5.24859e-10'               // cr //  &
-    '        "source-value" 5.23232'               // cr //  &
-    '    }'                                        // cr //  &
-    '    "wyckoff-species" {'                      // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            "Ar" '                            // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "wyckoff-multiplicity-and-letter" {'      // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            "4a"'                             // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
-    '    "property-id" "tag:staff@noreply.openkim.org,2014-04-15:property/cohesive-potential-energy-cubic-crystal"'    // cr //  &
-    '    "space-group" {'                          // cr //  &
-    '        "source-value" "Fm-3m"'               // cr //  &
-    '    }'                                        // cr //  &
-    '    "cohesive-potential-energy" {'            // cr //  &
-    '        "si-unit" "kg m^2 / s^2"'             // cr //  &
-    '        "source-unit" "eV"'                   // cr //  &
-    '        "si-value" 1.3859709e-20'             // cr //  &
-    '        "source-value" 0.0865055077405508'    // cr //  &
-    '    }'                                        // cr //  &
+    '{'                                            // cr //  &
+    !!!!!!!!!!!!!!!!
+    '   "short-name" {'                            // cr //  &
+    '       "source-value" ['                      // cr //  &
+             trim(crystalString)                   //        &
+    '       ]'                                     // cr //  &
+    '   }'                                         // cr //  &
+    !!!!!!!!!!!!!!!!
+    trim(latticeConstantString)                    //        &
+    !!!!!!!!!!!!!!!!
+    trim(propertyString)                           //        &
+    !!!!!!!!!!!!!!!!
     '    "basis-atom-coordinates" {'               // cr //  &
     '        "source-value" ['                     // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0.5'                          // cr //  &
-    '                0.5'                          // cr //  &
-    '            ]'                                // cr //  & 
-    '            ['                                // cr //  &
-    '                0.5 '                         // cr //  &
-    '                0 '                           // cr //  &
-    '                0.5'                          // cr //  &
-    '            ]'                                // cr //  &
-    '            ['                                // cr //  &
-    '                0.5'                          // cr //  &
-    '                0.5'                          // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
+          trim(basisAtomsCoordsFractionString)           //  &
     '        ]'                                    // cr //  &
     '    }'                                        // cr //  &
-    '    "wyckoff-coordinates" {'                  // cr //  &
-    '        "source-value" ['                     // cr //  &
-    '            ['                                // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '                0'                            // cr //  &
-    '            ]'                                // cr //  &
-    '        ]'                                    // cr //  &
-    '    }'                                        // cr //  &
+    !!!!!!!!!!!!!!!!
     '    "species" {'                              // cr //  &
     '        "source-value" ['                     // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
-    '            "Ar"'                             // cr //  &
+              trim(speciesString)                        //  & 
     '        ]'                                    // cr //  &
     '    }'                                        // cr //  &
+    !!!!!!!!!!!!!!!!
+    '    "temperature" {'                          // cr //  &
+    '    "source-value" 0'                         // cr //  &
+    '    "source-unit"  "K"'                       // cr //  &
+    '    }'                                        // cr //  &
+    !!!!!!!!!!!!!!!!
+    trim(CString)                                  //        &
+    !!!!!!!!!!!!!!!!
+    trim(DString)                                  //        &
+    !!!!!!!!!!!!!!!!
     '    "instance-id" 1'                          // cr //  &
-'}'
+    '}'
         end subroutine write_results_kim
 
             function getSpeciesCode_kim(pkim,species)

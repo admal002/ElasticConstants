@@ -1,8 +1,8 @@
 {
   "extended-id" "ElasticConstantsFirstStrainGradientCubic__TD_777729378961_000"
-  "description" "Nikhil, please write a description here for each Test that will go into their kimspec.edn files"
+  "description" "The isothermal classical and first strain gradient elastic constants for a crystal at 0 K and zero stress."
   "kim-api-version" "1.6"
   "domain" "openkim.org"
-  "title" "Nikhil, please write a one-sentence title for each Test here that will go into their kimspec.edn files"
+  "title" "Classical and first strain gradient elastic constants for simple lattices"
   "pipeline-api-version" "1.0"
 }
