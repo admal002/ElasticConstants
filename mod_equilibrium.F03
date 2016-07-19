@@ -19,11 +19,11 @@ module mod_equilibrium
 
     contains
 
-        function equilibriumCrystal(cT,cS,testname,modelname)
+        function equilibriumCrystal(cT,cS,species,modelname)
             implicit none
 
             ! Passed variables
-            character(len=KIM_KEY_STRING_LENGTH) :: testname,modelname
+            character(len=KIM_KEY_STRING_LENGTH) :: modelname,species
             character(len=*) :: cS
             type(Crystal) :: cT
             type(Crystal) :: equilibriumCrystal
@@ -54,7 +54,8 @@ module mod_equilibrium
             crystalStructure = cS
 
             ! Perform the hand-shake and determine the boundary conditions
-            call setup_kim(pkim,testname,modelname,nbc)
+            call WriteDescriptorFile(pkim,trim(species),trim(modelname))
+            call setup_kim(pkim,nbc)
 
             numBasisAtoms = size(cT%basisAtomsCoords,2)
             numParticles = numBasisAtoms * (numCellsPerSide**(DIM))
@@ -106,7 +107,7 @@ module mod_equilibrium
 
             ! Calculate energy for initial crystal
             call constructNeighList(atomisticSystem)
-            p(1,:) = atomisticSystem%cutoff/3._cd
+            p(1,:) = atomisticSystem%cutoff/2._cd
             p0 = p(1,:)
             pA => atomisticSystem
             call compute_kim(pkim)

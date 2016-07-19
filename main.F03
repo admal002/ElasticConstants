@@ -9,7 +9,7 @@ program main
     use mod_atomistic,   only : Atomistic, constructAtomistic, destroyAtomistic,constructNeighList,pA
     use mod_kim,         only : setup_kim, allocate_kim, initialize_kim, getCutoff_kim, &
                                 destroy_kim, write_results_kim, broadcastAtomistic_kim,&
-                                getSpeciesCode_kim,compute_kim,setCompute_kim
+                                getSpeciesCode_kim,compute_kim,setCompute_kim,WriteDescriptorFile
     use mod_fsge,        only : allocateIndComponents,writeFsgeMaterial
     use KIM_API_F03
     implicit none
@@ -44,9 +44,12 @@ program main
     print '("Crystal strucutre           : ",A)', trim(crystalStructure)
     print '("Species                     : ",A)', species
 
+    ! Initialize the KIM object
+    call WriteDescriptorFile(pkim,species,trim(modelname))
+
     ! Perform the hand-shake and determine the boundary conditions and process
     ! flags
-    call setup_kim(pkim,testname,modelname,nbc)
+    call setup_kim(pkim,nbc)
 
     select case(trim(crystalStructure))
     case('fcc')
@@ -106,7 +109,7 @@ program main
         crystalType%basisAtomsCoords(:,2) = (/0.25_cd,0.25_cd,0.25_cd/)*rcutoff/2._cd
     end select 
 
-    crystalTypeRelaxed = equilibriumCrystal(crystalType,crystalStructure,testname,modelname)
+    crystalTypeRelaxed = equilibriumCrystal(crystalType,crystalStructure,species,modelname)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -117,7 +120,8 @@ program main
     call constructAtomistic(atomisticSystem,numParticles,nbc)
     patomisticSystem => atomisticSystem
 
-    call setup_kim(pkim,testname,modelname,nbc)
+    call WriteDescriptorFile(pkim,species,trim(modelname))
+    call setup_kim(pkim,nbc)
     call initialize_kim(pkim,patomisticSystem%cutoff)
 
     ! Fill in the coordinates using the relaxed crystal

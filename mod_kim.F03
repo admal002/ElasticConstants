@@ -37,25 +37,14 @@ module mod_kim
             return
         end function getCutoff_kim
 
-        subroutine setup_kim(pkim,testname,modelname,nbc)
+        subroutine setup_kim(pkim,nbc)
             implicit none
             ! Passed variables
             type(c_ptr)                                     :: pkim
-            character(len=KIM_KEY_STRING_LENGTH),intent(in) :: modelname,testname
             integer(c_int),intent(out)                      :: nbc
 
             ! Local variables
-            character(len=10000) testkimfile
             character(len=KIM_KEY_STRING_LENGTH) :: NBC_Method
-
-            ! Initialize the KIM object
-            testkimfile = '../../te/' // trim(testname) // '/descriptor.kim'
-            ier = kim_api_file_init(pkim, testkimfile, modelname)
-            if (ier.lt.KIM_STATUS_OK) then
-                idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
-                                         "kim_api_file_init", ier)
-                stop
-            endif
 
             ! determine which NBC scenerio to use
             ier = kim_api_get_nbc_method(pkim, NBC_Method)
@@ -577,6 +566,135 @@ module mod_kim
                stop
             endif
         end function getCompute_kim
+
+subroutine WriteDescriptorFile(pkim,species,modelname)
+use, intrinsic :: iso_c_binding
+implicit none
+
+!-- Transferred variables
+type(c_ptr)      :: pkim
+character(len=KIM_KEY_STRING_LENGTH),intent(in) :: modelname
+character(len=2),     intent(in)   :: species
+
+!-- Local variables
+integer(c_int) :: i
+character(len=10000)   :: descriptorfile
+character(len=103) :: divider
+character(len=1)   :: cr
+character(len=52)  :: type_line
+
+! Define frequently used variables
+!
+cr = char(10)
+divider = '#######################################################################################################'
+
+! Write Minimol descriptor file into string descriptorfile
+!
+descriptorfile = &
+   divider                                                                            // cr // &
+   '#'                                                                                // cr // &
+   '# Copyright 2015 Nikhil Chandra Admal and Giacomo Po'                             // cr // &
+   '# All rights reserved.'                                                           // cr // &
+   '#'                                                                                // cr // &
+   '#'                                                                                // cr // &
+   '# See KIM_API/standard.kim for documentation about this file'                     // cr // &
+   '#'                                                                                // cr // &
+   divider                                                                            // cr // &
+                                                                                         cr // &
+                                                                                         cr // &
+   'KIM_API_Version := 1.6.0'                                                         // cr // &
+   'Unit_length      := A'                                                            // cr // &
+   'Unit_energy      := eV'                                                           // cr // &
+   'Unit_charge      := e'                                                            // cr // &
+   'Unit_temperature := K'                                                            // cr // &
+   'Unit_time        := ps'                                                           // cr // &
+                                                                                         cr // &
+                                                                                         cr // &
+   divider                                                                            // cr // &
+   'PARTICLES_SPECIES:'                                                               // cr // &
+   '# Symbol/name           Type                    code'                             // cr
+
+   write(type_line,'(a2,20x,''spec'',20x,i4)') species,0
+   descriptorfile = trim(descriptorfile) // type_line // cr
+
+   descriptorfile = trim(descriptorfile) // & 
+                                                                                         cr // &
+                                                                                         cr // &
+   divider                                                                            // cr // &
+   'CONVENTIONS:'                                                                     // cr // &
+   '# Name                  Type'                                                     // cr // &
+                                                                                         cr // &
+   'OneBasedLists           flag'                                                     // cr // &
+                                                                                         cr // &
+   'Neigh_BothAccess        flag'                                                     // cr // &
+                                                                                         cr // &
+   'NEIGH_RVEC_H            flag'                                                     // cr // &
+                                                                                         cr // &
+   'NEIGH_PURE_H            flag'                                                     // cr // &
+                                                                                         cr // &
+   'NEIGH_RVEC_F            flag'                                                     // cr // &
+                                                                                         cr // &
+   'NEIGH_PURE_F            flag'                                                     // cr // &
+                                                                                         cr // &
+   'MI_OPBC_H               flag'                                                     // cr // &
+                                                                                         cr // &
+   'MI_OPBC_F               flag'                                                     // cr // &
+                                                                                         cr // &
+                                                                                         cr // &
+   divider                                                                            // cr // &
+   'MODEL_INPUT:'                                                                     // cr // &
+   '# Name                        Type         Unit       Shape              requirements' // cr // &
+                                                                                         cr // &
+                                                                                         cr // &
+   'numberOfParticles             integer      none       []'                         // cr // &
+                                                                                         cr // &
+   'numberContributingParticles   integer      none       []'                         // cr // &
+                                                                                         cr // &
+   'numberOfSpecies               integer      none       []'                         // cr // &
+                                                                                         cr // &
+   'particleSpecies               integer      none       [numberOfParticles]'        // cr // &
+                                                                                         cr // &
+   'coordinates                   double       length     [numberOfParticles,3]'      // cr // &
+                                                                                         cr // &
+   'get_neigh                     method       none       []'                         // cr // &
+                                                                                         cr // &
+   'neighObject                   pointer      none       []'                         // cr // &
+                                                                                         cr // &
+   'boxSideLengths                double       length     [3]'                        // cr // &
+                                                                                         cr
+   if (analytical .eq. 1) then
+       descriptorfile = trim(descriptorfile)                                                // &
+   'process_dEdr                  method       none       []'                         // cr // &
+                                                                                         cr // &
+   'process_d2Edr2                method       none       []'                         // cr
+   endif
+
+   descriptorfile = trim(descriptorfile)                                              // cr // &
+                                                                                         cr // &
+   divider                                                                            // cr // &
+   'MODEL_OUTPUT:'                                                                    // cr // &
+   '# Name                        Type         Unit       Shape              requirements' // cr // &
+                                                                                         cr // &
+   'destroy                       method       none       []'                         // cr // &
+                                                                                         cr // &
+   'compute                       method       none       []'                         // cr // &
+                                                                                         cr // &
+   'cutoff                        double       length     []'                         // cr // &
+                                                                                         cr // &
+   'energy                        double       energy     []'                         // cr // &
+                                                                                         cr // &
+   divider                                                                            // cr // char(0)
+
+ier = kim_api_string_init(pkim, trim(descriptorfile), modelname)
+if (ier.lt.KIM_STATUS_OK) then
+    idum = kim_api_report_error(__LINE__, THIS_FILE_NAME, &
+                             "kim_api_file_init", ier)
+    stop
+endif
+
+return
+
+end subroutine WriteDescriptorFile
 
 end module mod_kim
 
