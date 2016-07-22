@@ -23,7 +23,8 @@ module mod_equilibrium
             implicit none
 
             ! Passed variables
-            character(len=KIM_KEY_STRING_LENGTH) :: modelname,species
+            character(len=KIM_KEY_STRING_LENGTH) :: modelname
+            character(len=2) :: species
             character(len=*) :: cS
             type(Crystal) :: cT
             type(Crystal) :: equilibriumCrystal
@@ -54,7 +55,7 @@ module mod_equilibrium
             crystalStructure = cS
 
             ! Perform the hand-shake and determine the boundary conditions
-            call WriteDescriptorFile(pkim,trim(species),trim(modelname))
+            call WriteDescriptorFile(pkim,species,modelname)
             call setup_kim(pkim,nbc)
 
             numBasisAtoms = size(cT%basisAtomsCoords,2)
@@ -168,6 +169,22 @@ module mod_equilibrium
             real(c_double), intent(in) :: latticeSpacing(*)
             real(c_double)             :: funk
 
+            real(c_double), parameter :: latticeSpacingMin = 1e-3,  &
+                                         energyMax = 1e5
+
+            if (trim(crystalStructure) .eq. 'fcc' .or.  &
+                trim(crystalStructure) .eq. 'bcc' .or.  &
+                trim(crystalStructure) .eq. 'diamond') then
+                if (latticeSpacing(1) .lt. latticeSpacingMin) then
+                    funk = energyMax;
+                    return
+                endif
+            elseif (trim(crystalStructure) .eq. 'hcp' .or. trim(crystalStructure) .eq. 'hex') then
+                if (min(latticeSpacing(1),latticeSpacing(2)) .lt. latticeSpacingMin) then
+                    funk = energyMax;
+                    return
+                endif
+            endif
 
             select case(trim(crystalStructure))
             ! update the lattice spacing based on crystalStructure

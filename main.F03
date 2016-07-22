@@ -45,7 +45,7 @@ program main
     print '("Species                     : ",A)', species
 
     ! Initialize the KIM object
-    call WriteDescriptorFile(pkim,species,trim(modelname))
+    call WriteDescriptorFile(pkim,species,modelname)
 
     ! Perform the hand-shake and determine the boundary conditions and process
     ! flags
@@ -120,7 +120,7 @@ program main
     call constructAtomistic(atomisticSystem,numParticles,nbc)
     patomisticSystem => atomisticSystem
 
-    call WriteDescriptorFile(pkim,species,trim(modelname))
+    call WriteDescriptorFile(pkim,species,modelname)
     call setup_kim(pkim,nbc)
     call initialize_kim(pkim,patomisticSystem%cutoff)
 
