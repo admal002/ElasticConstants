@@ -62,6 +62,8 @@ program main
         numBasisAtoms = 2
     case('diamond')
         numBasisAtoms = 2
+    case('orth')
+        numBasisAtoms = 4
     end select
     call allocateCrystal(crystalType,numBasisAtoms)
 
@@ -107,6 +109,12 @@ program main
         crystalType%LatticeType = constructFCCLattice(rcutoff/2._cd)
         crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
         crystalType%basisAtomsCoords(:,2) = (/0.25_cd,0.25_cd,0.25_cd/)*rcutoff/2._cd
+    case('orth')
+        crystalType%LatticeType = constructOrthLattice(rcutoff/2._cd,rcutoff/2._cd,rcutoff/2._cd)
+        crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
+        crystalType%basisAtomsCoords(:,2) = (/0.5_cd,0.5_cd,0._cd/)*rcutoff/2._cd
+        crystalType%basisAtomsCoords(:,3) = (/0._cd,0.5_cd,0.5_cd/)*rcutoff/2._cd
+        crystalType%basisAtomsCoords(:,4) = (/0.5_cd,0._cd,0.5_cd/)*rcutoff/2._cd
     end select 
 
     crystalTypeRelaxed = equilibriumCrystal(crystalType,crystalStructure,species,modelname)

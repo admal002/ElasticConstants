@@ -42,6 +42,8 @@ module mod_equilibrium
                 ndim=1
             case('hcp', 'hex')
                 ndim=2
+            case('orth')
+                ndim=3
             case default
                 print '("mod_equilibrium: Crystal structure not supported")'
             end select
@@ -130,6 +132,24 @@ module mod_equilibrium
                         crystalType = scaleCrystal(cT,1._cd,1._cd,2._cd)
                         p(dimn+1,1) = p(1,1)
                         p(dimn+1,2) = 2._cd*p(1,2)
+                    end select
+                case('orth')
+                    select case(dimn)
+                    case(1)
+                        crystalType = scaleCrystal(cT,2._cd,1._cd,1._cd)
+                        p(dimn+1,1) = 2._cd*p(1,1)
+                        p(dimn+1,2) = p(1,2)
+                        p(dimn+1,3) = p(1,3)
+                    case(2)
+                        crystalType = scaleCrystal(cT,1._cd,2._cd,1._cd)
+                        p(dimn+1,1) = p(1,1)
+                        p(dimn+1,2) = 2._cd*p(1,2)
+                        p(dimn+1,3) = p(1,3)
+                    case(3)
+                        crystalType = scaleCrystal(cT,1._cd,1._cd,2._cd)
+                        p(dimn+1,1) = p(1,1)
+                        p(dimn+1,2) = p(1,2)
+                        p(dimn+1,3) = 2._cd*p(1,3)
                     end select
                 end select
 

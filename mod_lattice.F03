@@ -66,6 +66,24 @@ module mod_lattice
 
         end function constructHCPLattice
 
+        function constructOrthLattice(latticeSpacing_x,latticeSpacing_y,latticeSpacing_z)
+            implicit none
+            type(Lattice)  :: constructOrthLattice
+            real(c_double), intent(in) :: latticeSpacing_x,latticeSpacing_y,latticeSpacing_z
+
+            ! Local variables
+            real(c_double), dimension(DIM,DIM) :: latVec
+            
+            ! A2 passes through atom
+            latVec(:,1) = latticeSpacing_x*(/1._cd, 0._cd, 0._cd/)
+            latVec(:,2) = latticeSpacing_y*(/0._cd, 1._cd, 0._cd/)
+            latVec(:,3) = latticeSpacing_z*(/0._cd, 0._cd, 1._cd/)
+
+            constructOrthLattice%latVec = latVec
+
+            constructOrthLattice%latVol = latticeSpacing_x*latticeSpacing_y*latticeSpacing_z
+
+        end function constructOrthLattice
 end module mod_lattice
 
 
