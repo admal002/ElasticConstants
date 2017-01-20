@@ -197,8 +197,8 @@ module mod_equilibrium
             case('hcp')
                 crystalType%LatticeType = constructHCPLattice(latticeSpacing(1),latticeSpacing(2))
                 crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
-                crystalType%basisAtomsCoords(:,2) = (/latticeSpacing(1)*0.5_cd,  &
-                                            latticeSpacing(1)*(0.5_cd/sqrt(3._cd)),   &
+                crystalType%basisAtomsCoords(:,2) = (/latticeSpacing(1)*(0.5_cd/sqrt(3._cd)),  &
+                                            latticeSpacing(1)*0.5_cd,   &
                                             latticeSpacing(2)*0.5_cd/) 
             case('hex')
                 crystalType%LatticeType = constructHCPLattice(latticeSpacing(1),latticeSpacing(2))
