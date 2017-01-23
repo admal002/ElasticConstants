@@ -198,26 +198,26 @@ module mod_Fsge
 
             dunit = GetFreeUnit()
             open(unit=dunit,file='output/Dijmkln_ext.out',status='replace',position='append')
-            do i=1,18
-                cpntsD(1:3) = voigtStrainGradient(i)
-                do j=i,18
-                    cpntsD(4:6) = voigtStrainGradient(j)
-                    write(dunit,*) fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
-                enddo
-            enddo
-            !do i=1,DIM
-            !    do j=1,DIM
-            !        do m=1,DIM
-            !            do k=1,DIM
-            !                do l=1,DIM
-            !                    do n=1,DIM
-            !                        write(dunit,*) i,j,m,k,l,n,fsgeType%Dijmkln(i,j,m,k,l,n)
-            !                    enddo
-            !                enddo
-            !            enddo
-            !        enddo
+            !do i=1,18
+            !    cpntsD(1:3) = voigtStrainGradient(i)
+            !    do j=i,18
+            !        cpntsD(4:6) = voigtStrainGradient(j)
+            !        write(dunit,*) fsgeType%Dijmkln(cpntsD(1),cpntsD(2),cpntsD(3),cpntsD(4),cpntsD(5),cpntsD(6))
             !    enddo
             !enddo
+            do i=1,DIM
+                do j=1,DIM
+                    do m=1,DIM
+                        do k=1,DIM
+                            do l=1,DIM
+                                do n=1,DIM
+                                    write(dunit,*) i,j,m,k,l,n,fsgeType%Dijmkln(i,j,m,k,l,n)
+                                enddo
+                            enddo
+                        enddo
+                    enddo
+                enddo
+            enddo
             close(dunit)
 
             tunit = GetFreeUnit()

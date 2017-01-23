@@ -74,14 +74,17 @@ module mod_lattice
             ! Local variables
             real(c_double), dimension(DIM,DIM) :: latVec
             
-            ! A2 passes through atom
-            latVec(:,1) = latticeSpacing_x*(/1._cd, 0._cd, 0._cd/)
-            latVec(:,2) = latticeSpacing_y*(/0._cd, 1._cd, 0._cd/)
+            ! A1   =  0.5* a X - 0.5*b Y
+            ! A2   =  0.5* a X + 0.5*b Y
+            ! A3   =  c Z
+
+            latVec(:,1) = (/0.5_cd*latticeSpacing_x, -0.5_cd*latticeSpacing_y, 0._cd/)
+            latVec(:,2) = (/0.5_cd*latticeSpacing_x,  0.5_cd*latticeSpacing_y, 0._cd/)
             latVec(:,3) = latticeSpacing_z*(/0._cd, 0._cd, 1._cd/)
 
             constructOrthLattice%latVec = latVec
 
-            constructOrthLattice%latVol = latticeSpacing_x*latticeSpacing_y*latticeSpacing_z
+            constructOrthLattice%latVol = latticeSpacing_x*latticeSpacing_y*latticeSpacing_z/2._cd
 
         end function constructOrthLattice
 end module mod_lattice

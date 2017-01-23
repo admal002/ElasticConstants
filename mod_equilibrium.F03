@@ -4,7 +4,7 @@ module mod_equilibrium
     use mod_global
     use mod_crystal, only : Crystal,constructGlobalCrystal,scaleCrystal,allocateCrystal,destroyCrystal
     use mod_atomistic
-    use mod_lattice, only : constructFCCLattice, constructBCCLattice, constructHCPLattice
+    use mod_lattice, only : constructFCCLattice, constructOrthLattice, constructBCCLattice, constructHCPLattice
     use mod_kim
 
     integer(c_int), parameter :: numCellsPerSide  = 8
@@ -43,7 +43,7 @@ module mod_equilibrium
             case('hcp', 'hex')
                 ndim=2
             case('orth')
-                ndim=3
+                ndim=4
             case default
                 print '("mod_equilibrium: Crystal structure not supported")'
             end select
@@ -103,6 +103,11 @@ module mod_equilibrium
                 write(*,'(A20,2x,A20)') 'Lattice spacing','energy'
             elseif (trim(cS) .eq. 'hcp' .or. trim(cS) .eq. 'hex') then
                 write(*,'(A20,2x,A20,2x,A10)') 'Lattice spacing a','Lattice spacing c','energy'
+            elseif (trim(cS) .eq. 'orth') then
+                write(*,'(A20,2x,A20,2x,A20,2x,A20,2x,A10)') 'Lattice spacing a', &
+                                               'Lattice spacing b', &
+                                               'Lattice spacing c', &
+                                               'Lattice shift y','energy'
             endif
             ! Set the process flags in the kim api to 0, as we do not need them
             if (atomisticSystem%processdEdrFlag .eq. 1)   call setCompute_kim(pkim,'process_dEdr',0)
@@ -111,6 +116,10 @@ module mod_equilibrium
             ! Calculate energy for initial crystal
             call constructNeighList(atomisticSystem)
             p(1,:) = atomisticSystem%cutoff/2._cd
+            if(trim(cS) .eq. 'orth') then 
+                p(1,1:3) = (/0.4_cd,0.6_cd,0.4_cd/)*atomisticSystem%cutoff
+                p(1,4) = 0.1_cd
+            endif
             p0 = p(1,:)
             pA => atomisticSystem
             call compute_kim(pkim)
@@ -140,16 +149,27 @@ module mod_equilibrium
                         p(dimn+1,1) = 2._cd*p(1,1)
                         p(dimn+1,2) = p(1,2)
                         p(dimn+1,3) = p(1,3)
+                        p(dimn+1,4) = p(1,4)
                     case(2)
                         crystalType = scaleCrystal(cT,1._cd,2._cd,1._cd)
                         p(dimn+1,1) = p(1,1)
                         p(dimn+1,2) = 2._cd*p(1,2)
                         p(dimn+1,3) = p(1,3)
+                        p(dimn+1,4) = p(1,4)
                     case(3)
                         crystalType = scaleCrystal(cT,1._cd,1._cd,2._cd)
                         p(dimn+1,1) = p(1,1)
                         p(dimn+1,2) = p(1,2)
                         p(dimn+1,3) = 2._cd*p(1,3)
+                        p(dimn+1,4) = p(1,4)
+                    case(4)
+                        crystalType = scaleCrystal(cT,1._cd,1._cd,1._cd)
+                        crystalType%basisAtomsCoords(2,:) = 2._cd*crystalType%basisAtomsCoords(2,:)
+                        p(dimn+1,1) = p(1,1)
+                        p(dimn+1,2) = p(1,2)
+                        p(dimn+1,3) = p(1,3)
+                        p(dimn+1,4) = 2._cd*p(1,4)
+
                     end select
                 end select
 
@@ -173,6 +193,9 @@ module mod_equilibrium
                 equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,1)/p0(1),p(1,1)/p0(1))
             case('hcp','hex')
                 equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,1)/p0(1),p(1,2)/p0(2))
+            case('orth')
+                equilibriumCrystal = scaleCrystal(cT,p(1,1)/p0(1),p(1,2)/p0(2),p(1,3)/p0(3))
+                equilibriumCrystal%basisAtomsCoords(2,:) = equilibriumCrystal%basisAtomsCoords(2,:)*p(1,4)/p0(4)
             end select
 
             deallocate(y)
@@ -204,6 +227,11 @@ module mod_equilibrium
                     funk = energyMax;
                     return
                 endif
+            elseif (trim(crystalStructure) .eq. 'orth') then
+                if (min(latticeSpacing(1),latticeSpacing(2),latticeSpacing(3),latticeSpacing(4)) .lt. latticeSpacingMin) then
+                    funk = energyMax;
+                    return
+                endif
             endif
 
             select case(trim(crystalStructure))
@@ -227,6 +255,14 @@ module mod_equilibrium
                 crystalType%LatticeType = constructFCCLattice(latticeSpacing(1))
                 crystalType%basisAtomsCoords(:,1) = (/0._cd,0._cd,0._cd/)
                 crystalType%basisAtomsCoords(:,2) = (/0.25_cd,0.25_cd,0.25_cd/)*latticeSpacing(1)
+            case('orth')
+                crystalType%LatticeType = constructOrthLattice(latticeSpacing(1),   &
+                                                               latticeSpacing(2),   &
+                                                               latticeSpacing(3))
+                ! B1   =  - y*A1 + y*A2 + 0.25*A3     =  + y*b*e2 + 0.25*c e3 
+                ! B2   =  + y*A1 - y*A2 - 0.25*A3     =  - y*b*e2 - 0.25*c e3 
+                crystalType%basisAtomsCoords(:,1) =  (/0._cd,latticeSpacing(4)*latticeSpacing(2),0.25_cd*latticeSpacing(3)/)
+                crystalType%basisAtomsCoords(:,2) = -(/0._cd,latticeSpacing(4)*latticeSpacing(2),0.25_cd*latticeSpacing(3)/)
             end select 
 
             call constructGlobalCrystal(numCellsPerSide,                &
@@ -252,6 +288,8 @@ module mod_equilibrium
             elseif (trim(crystalStructure) .eq. 'hcp' .or.  &
                     trim(crystalStructure) .eq. 'hex') then
                 write(*,'(f20.5,2x,f20.5,2x,f20.10)') latticeSpacing(1:2),atomisticSystem%energy
+            elseif (trim(crystalStructure) .eq. 'orth') then
+                write(*,'(f20.5,2x,f20.5,2x,f20.10,2x,f20.10,2x,f20.10)') latticeSpacing(1:4),atomisticSystem%energy
             endif
             funk = atomisticSystem%energy
         end function funk
